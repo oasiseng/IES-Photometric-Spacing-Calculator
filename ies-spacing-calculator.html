@@ -1,0 +1,956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IES Photometric Spacing Calculator | Wind Calculations by Oasis Engineering</title>
+<meta name="description" content="Free IES photometric spacing calculator for roadway lighting. Upload your IES file, set pole height, and get optimal spacing with illuminance heatmaps. Per IES RP-8. Built by Oasis Engineering.">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0e1a;
+  --surface: #111827;
+  --surface2: #1a2236;
+  --surface3: #1f2b42;
+  --border: #2a3450;
+  --border-light: #354163;
+  --text: #e2e8f0;
+  --text-dim: #8892a8;
+  --text-muted: #5e6a82;
+  --accent: #f59e0b;
+  --accent-hover: #fbbf24;
+  --accent-glow: rgba(245, 158, 11, 0.25);
+  --accent-subtle: rgba(245, 158, 11, 0.08);
+  --pass: #10b981;
+  --pass-bg: rgba(16, 185, 129, 0.1);
+  --pass-border: rgba(16, 185, 129, 0.3);
+  --warn: #f59e0b;
+  --warn-bg: rgba(245, 158, 11, 0.1);
+  --warn-border: rgba(245, 158, 11, 0.3);
+  --fail: #ef4444;
+  --fail-bg: rgba(239, 68, 68, 0.1);
+  --fail-border: rgba(239, 68, 68, 0.3);
+  --blue: #3b82f6;
+  --blue-glow: rgba(59, 130, 246, 0.15);
+  --blue-border: rgba(59, 130, 246, 0.3);
+  --cta-green: #059669;
+  --cta-green-hover: #047857;
+  --cta-green-glow: rgba(5, 150, 105, 0.25);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(42, 52, 80, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(42, 52, 80, 0.2) 1px, transparent 1px);
+  background-size: 60px 60px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.app { position: relative; z-index: 1; }
+
+.header {
+  padding: 20px 32px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: linear-gradient(180deg, rgba(17, 24, 39, 0.97) 0%, rgba(10, 14, 26, 0.85) 100%);
+  backdrop-filter: blur(20px);
+  position: sticky; top: 0; z-index: 100;
+}
+.header-left { display: flex; align-items: center; gap: 14px; }
+.logo-mark {
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, var(--accent) 0%, #d97706 100%);
+  border-radius: 9px; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; color: var(--bg);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+.header-title h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; }
+.header-title .subtitle { font-size: 11px; color: var(--text-dim); font-weight: 500; letter-spacing: 0.04em; text-transform: uppercase; }
+.header-right { display: flex; align-items: center; gap: 12px; }
+.header-badge {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--accent);
+  background: var(--accent-subtle); padding: 5px 10px; border-radius: 5px;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+.header-link {
+  font-size: 12px; color: var(--text-dim); text-decoration: none;
+  padding: 6px 12px; border-radius: 6px; transition: all 0.2s; border: 1px solid transparent;
+}
+.header-link:hover { color: var(--text); border-color: var(--border); background: var(--surface2); }
+
+.main { display: grid; grid-template-columns: 370px 1fr; min-height: calc(100vh - 72px); }
+
+/* SIDEBAR */
+.sidebar {
+  background: var(--surface); border-right: 1px solid var(--border);
+  padding: 20px; overflow-y: auto; max-height: calc(100vh - 72px);
+  display: flex; flex-direction: column;
+}
+.sidebar-scroll { flex: 1; overflow-y: auto; }
+
+.section-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text-muted);
+  margin-bottom: 10px; margin-top: 18px;
+  display: flex; align-items: center; gap: 8px;
+}
+.section-label:first-child { margin-top: 0; }
+.section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+.upload-zone {
+  border: 2px dashed var(--border); border-radius: 10px;
+  padding: 20px 16px; text-align: center; cursor: pointer;
+  transition: all 0.3s ease; margin-bottom: 4px;
+}
+.upload-zone:hover { border-color: var(--accent); background: var(--accent-subtle); }
+.upload-zone.has-file { border-color: var(--pass); border-style: solid; background: var(--pass-bg); }
+.upload-icon { font-size: 28px; margin-bottom: 6px; }
+.upload-zone h3 { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.upload-zone p { font-size: 11px; color: var(--text-dim); }
+.file-info { display: none; text-align: left; }
+.upload-zone.has-file .file-info { display: block; }
+.upload-zone.has-file .upload-prompt { display: none; }
+.file-info .file-name {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--pass);
+  font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;
+}
+.file-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.file-stat { font-size: 10px; color: var(--text-dim); }
+.file-stat span { color: var(--text); font-weight: 600; }
+
+.road-class-select {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 12px; color: var(--text);
+  font-family: 'DM Sans', sans-serif; font-size: 12px; outline: none; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%238892a8'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center;
+}
+.road-class-select:focus { border-color: var(--accent); }
+.road-class-select option { background: var(--surface2); color: var(--text); }
+
+.auto-target-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10px; color: var(--blue); background: var(--blue-glow);
+  padding: 3px 8px; border-radius: 4px; margin-top: 6px;
+  font-weight: 600; border: 1px solid var(--blue-border);
+}
+
+.control-group { margin-bottom: 12px; }
+.control-group label { display: block; font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
+.control-group label small { font-weight: 400; color: var(--text-dim); }
+
+.slider-row { display: flex; align-items: center; gap: 10px; }
+.slider-row input[type="range"] {
+  flex: 1; -webkit-appearance: none; height: 5px;
+  background: var(--border); border-radius: 3px; outline: none;
+}
+.slider-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  background: var(--accent); border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+.slider-value {
+  font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600;
+  color: var(--accent); min-width: 55px; text-align: right;
+}
+
+.input-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.input-field { position: relative; }
+.input-field label { display: block; font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.input-field input {
+  width: 100%; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 7px; padding: 8px 36px 8px 10px; color: var(--text);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; outline: none;
+  transition: border-color 0.2s;
+}
+.input-field input:focus { border-color: var(--accent); }
+.input-field .unit { position: absolute; right: 10px; bottom: 9px; font-size: 10px; color: var(--text-muted); font-weight: 500; }
+
+.arrangement-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 4px; }
+.arr-btn {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 7px; padding: 8px; cursor: pointer; text-align: center;
+  transition: all 0.2s; color: var(--text-dim); font-size: 11px; font-weight: 500;
+}
+.arr-btn.active { background: var(--blue-glow); border-color: var(--blue); color: var(--text); }
+.arr-btn .arr-icon { font-size: 16px; margin-bottom: 2px; }
+
+.calc-btn {
+  width: 100%; background: linear-gradient(135deg, var(--accent) 0%, #d97706 100%);
+  color: var(--bg); border: none; border-radius: 9px; padding: 13px;
+  font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.3s;
+  letter-spacing: 0.02em; margin-top: 12px;
+  box-shadow: 0 4px 20px var(--accent-glow);
+}
+.calc-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 30px var(--accent-glow); }
+.calc-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+/* CONTENT */
+.content { padding: 20px 28px; overflow-y: auto; max-height: calc(100vh - 72px); }
+
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 60vh; text-align: center; color: var(--text-dim);
+}
+.empty-state .big-icon { font-size: 56px; margin-bottom: 14px; opacity: 0.5; }
+.empty-state h2 { font-size: 17px; color: var(--text); margin-bottom: 6px; }
+.empty-state p { font-size: 12px; max-width: 380px; line-height: 1.6; }
+
+.results { display: none; }
+.results.visible { display: block; animation: fadeUp 0.4s ease; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+.summary-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
+.summary-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px; position: relative; overflow: hidden;
+}
+.summary-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2.5px; }
+.summary-card.pass::before { background: var(--pass); }
+.summary-card.warn::before { background: var(--warn); }
+.summary-card.fail::before { background: var(--fail); }
+.summary-card.info::before { background: var(--blue); }
+.summary-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); font-weight: 600; margin-bottom: 6px; }
+.summary-card .value { font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 700; }
+.summary-card.pass .value { color: var(--pass); }
+.summary-card.warn .value { color: var(--warn); }
+.summary-card.fail .value { color: var(--fail); }
+.summary-card.info .value { color: var(--blue); }
+.summary-card .detail { font-size: 10px; color: var(--text-dim); margin-top: 3px; }
+
+.visual-section { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.visual-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px;
+}
+.visual-panel h3 { font-size: 12px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.visual-panel h3 .icon { font-size: 14px; }
+
+#heatmapCanvas { width: 100%; border-radius: 6px; background: #050810; }
+.side-profile-wrap { width: 100%; aspect-ratio: 2.2 / 1; }
+.side-profile-wrap svg { width: 100%; height: 100%; }
+
+.results-table-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden; margin-bottom: 16px;
+}
+.results-table-wrap h3 { font-size: 12px; font-weight: 600; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.results-table { width: 100%; border-collapse: collapse; }
+.results-table th {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--text-dim); font-weight: 600; padding: 8px 12px;
+  text-align: right; border-bottom: 1px solid var(--border); background: var(--surface2);
+}
+.results-table th:first-child { text-align: left; }
+.results-table td {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  padding: 8px 12px; text-align: right;
+  border-bottom: 1px solid rgba(42, 52, 80, 0.4);
+}
+.results-table td:first-child { text-align: left; font-family: 'DM Sans', sans-serif; font-weight: 600; }
+.results-table tr:hover { background: rgba(59, 130, 246, 0.04); }
+.results-table tr.recommended { background: var(--blue-glow); }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 600; padding: 2px 7px;
+  border-radius: 4px; font-family: 'DM Sans', sans-serif;
+}
+.status-badge.pass { background: var(--pass-bg); color: var(--pass); }
+.status-badge.warn { background: var(--warn-bg); color: var(--warn); }
+.status-badge.fail { background: var(--fail-bg); color: var(--fail); }
+
+/* CTA */
+.cta-banner {
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.12) 0%, rgba(59, 130, 246, 0.08) 100%);
+  border: 1px solid rgba(5, 150, 105, 0.25); border-radius: 12px;
+  padding: 20px 24px; margin-bottom: 16px;
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 20px;
+}
+.cta-banner .cta-content h4 { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.cta-banner .cta-content p { font-size: 12px; color: var(--text-dim); line-height: 1.5; max-width: 480px; }
+.cta-button {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--cta-green); color: #fff; border: none; border-radius: 8px;
+  padding: 11px 20px; font-size: 12px; font-weight: 700; cursor: pointer;
+  transition: all 0.3s; text-decoration: none; white-space: nowrap;
+  box-shadow: 0 4px 16px var(--cta-green-glow);
+}
+.cta-button:hover { background: var(--cta-green-hover); transform: translateY(-1px); }
+
+.cta-services { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.cta-service-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  padding: 16px; text-decoration: none; color: var(--text); transition: all 0.3s;
+  position: relative; overflow: hidden;
+}
+.cta-service-card:hover { border-color: var(--accent); background: var(--accent-subtle); transform: translateY(-2px); }
+.cta-service-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent); opacity: 0; transition: opacity 0.3s; }
+.cta-service-card:hover::before { opacity: 1; }
+.cta-service-card .svc-icon { font-size: 24px; margin-bottom: 8px; }
+.cta-service-card h5 { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+.cta-service-card p { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+.cta-service-card .arrow { position: absolute; top: 14px; right: 14px; font-size: 14px; color: var(--text-muted); transition: color 0.3s; }
+.cta-service-card:hover .arrow { color: var(--accent); }
+
+.calc-footer { text-align: center; padding: 16px; font-size: 10px; color: var(--text-muted); border-top: 1px solid var(--border); margin-top: 8px; }
+.calc-footer a { color: var(--accent); text-decoration: none; }
+.calc-footer a:hover { text-decoration: underline; }
+
+@media (max-width: 1100px) {
+  .main { grid-template-columns: 1fr; }
+  .sidebar { max-height: none; border-right: none; border-bottom: 1px solid var(--border); }
+  .content { max-height: none; }
+  .summary-cards { grid-template-columns: repeat(2, 1fr); }
+  .visual-section { grid-template-columns: 1fr; }
+  .cta-services { grid-template-columns: 1fr; }
+  .cta-banner { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .header { padding: 14px 16px; }
+  .header-right { display: none; }
+  .sidebar { padding: 16px; }
+  .content { padding: 16px; }
+  .summary-cards { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <div class="header-left">
+      <div class="logo-mark">WC</div>
+      <div class="header-title">
+        <h1>IES Spacing Calculator</h1>
+        <div class="subtitle">windcalculations.com — by Oasis Engineering</div>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="header-badge">v2.0 — IES RP-8</div>
+      <a href="https://windcalculations.com" class="header-link">Wind Calcs</a>
+      <a href="https://oasisengineering.com" class="header-link">Oasis Engineering</a>
+    </div>
+  </header>
+
+  <div class="main">
+    <aside class="sidebar">
+      <div class="sidebar-scroll">
+
+        <div class="section-label">IES File</div>
+        <div class="upload-zone" id="uploadZone">
+          <input type="file" id="iesInput" accept=".ies" style="display:none">
+          <div class="upload-prompt">
+            <div class="upload-icon">📁</div>
+            <h3>Upload IES File</h3>
+            <p>Drag & drop or click to browse<br>.ies (IESNA LM-63-2002)</p>
+          </div>
+          <div class="file-info">
+            <div class="file-name" id="fileName">✓ <span></span></div>
+            <div class="file-stats" id="fileStats"></div>
+          </div>
+        </div>
+
+        <div class="section-label">Road Classification (IES RP-8)</div>
+        <div class="control-group">
+          <label>Road Type & Speed</label>
+          <select class="road-class-select" id="roadClass" onchange="updateRoadClass()">
+            <option value="custom" data-fc="0.7" data-uni="4.0" data-speed="—">Custom / Manual</option>
+            <optgroup label="Local / Residential">
+              <option value="local-low" data-fc="0.4" data-uni="6.0" data-speed="15-25">Local — Low Ped (15-25 mph)</option>
+              <option value="local-med" data-fc="0.6" data-uni="4.0" data-speed="15-25">Local — Medium Ped (15-25 mph)</option>
+              <option value="local-high" data-fc="0.9" data-uni="3.0" data-speed="15-25">Local — High Ped (15-25 mph)</option>
+            </optgroup>
+            <optgroup label="Collector">
+              <option value="coll-low" data-fc="0.6" data-uni="4.0" data-speed="30-35" selected>Collector — Low Ped (30-35 mph)</option>
+              <option value="coll-med" data-fc="0.8" data-uni="3.0" data-speed="30-35">Collector — Medium Ped (30-35 mph)</option>
+              <option value="coll-high" data-fc="1.2" data-uni="3.0" data-speed="30-35">Collector — High Ped (30-35 mph)</option>
+            </optgroup>
+            <optgroup label="Minor Arterial">
+              <option value="minor-low" data-fc="0.8" data-uni="3.0" data-speed="35-45">Minor Arterial — Low Ped (35-45 mph)</option>
+              <option value="minor-med" data-fc="1.0" data-uni="3.0" data-speed="35-45">Minor Arterial — Med Ped (35-45 mph)</option>
+              <option value="minor-high" data-fc="1.4" data-uni="3.0" data-speed="35-45">Minor Arterial — High Ped (35-45 mph)</option>
+            </optgroup>
+            <optgroup label="Major Arterial / Highway">
+              <option value="major-low" data-fc="1.0" data-uni="3.0" data-speed="45-55">Major Arterial — Low Ped (45-55 mph)</option>
+              <option value="major-med" data-fc="1.4" data-uni="3.0" data-speed="45-55">Major Arterial — Med Ped (45-55 mph)</option>
+              <option value="major-high" data-fc="1.8" data-uni="3.0" data-speed="45-55">Major Arterial — High Ped (45-55 mph)</option>
+            </optgroup>
+          </select>
+          <div class="auto-target-badge" id="autoTargetBadge">
+            RP-8 → Target: 0.6 fc | Max Avg/Min: 4.0:1 | 30-35 mph
+          </div>
+        </div>
+
+        <div class="section-label">Parameters</div>
+
+        <div class="control-group">
+          <label>Mounting Height <small>(ft)</small></label>
+          <div class="slider-row">
+            <input type="range" id="mountHeight" min="15" max="45" value="25" step="1">
+            <div class="slider-value" id="mountHeightVal">25 ft</div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label>Target Eavg <small>(fc) — override RP-8 default</small></label>
+          <div class="slider-row">
+            <input type="range" id="targetFc" min="0.2" max="3.0" value="0.6" step="0.1">
+            <div class="slider-value" id="targetFcVal">0.6 fc</div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label>Max Avg/Min Uniformity Ratio</label>
+          <div class="slider-row">
+            <input type="range" id="targetUni" min="2.0" max="10.0" value="4.0" step="0.5">
+            <div class="slider-value" id="targetUniVal">4.0:1</div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="input-row">
+            <div class="input-field">
+              <label>Road Width</label>
+              <input type="number" id="roadWidth" value="24" min="10" max="80">
+              <span class="unit">ft</span>
+            </div>
+            <div class="input-field">
+              <label>Pole Offset</label>
+              <input type="number" id="poleOffset" value="2" min="0" max="20">
+              <span class="unit">ft</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="input-row">
+            <div class="input-field">
+              <label>Min Spacing</label>
+              <input type="number" id="minSpacing" value="60" min="30" max="300">
+              <span class="unit">ft</span>
+            </div>
+            <div class="input-field">
+              <label>Max Spacing</label>
+              <input type="number" id="maxSpacing" value="220" min="60" max="500">
+              <span class="unit">ft</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-label">Arrangement</div>
+        <div class="arrangement-toggle">
+          <div class="arr-btn active" data-arr="single" onclick="setArrangement('single')">
+            <div class="arr-icon">│─ ─ ─│</div>
+            Single Side
+          </div>
+          <div class="arr-btn" data-arr="staggered" onclick="setArrangement('staggered')">
+            <div class="arr-icon">│─ ┼ ─│</div>
+            Staggered
+          </div>
+        </div>
+
+        <div class="control-group" style="margin-top: 8px;">
+          <label>Light Loss Factor <small>(maintenance/dirt)</small></label>
+          <div class="slider-row">
+            <input type="range" id="llf" min="0.60" max="1.00" value="1.00" step="0.01">
+            <div class="slider-value" id="llfVal">1.00</div>
+          </div>
+        </div>
+
+      </div>
+      <button class="calc-btn" id="calcBtn" disabled onclick="runCalculation()">Upload IES File to Begin</button>
+    </aside>
+
+    <div class="content">
+      <div class="empty-state" id="emptyState">
+        <div class="big-icon">💡</div>
+        <h2>Upload an IES File to Start</h2>
+        <p>Point-by-point photometric calculation using manufacturer IES data. Determines optimal pole spacing per IES RP-8 roadway lighting criteria with interactive heatmap visualization.</p>
+        <p style="margin-top:12px;font-size:11px;color:var(--text-muted)">Supports IESNA LM-63-2002 (.ies) — Type C photometry</p>
+      </div>
+
+      <div class="results" id="results">
+        <div class="summary-cards" id="summaryCards"></div>
+
+        <div class="visual-section">
+          <div class="visual-panel">
+            <h3><span class="icon">🔥</span> Illuminance Heatmap (Recommended Spacing)</h3>
+            <canvas id="heatmapCanvas" width="600" height="300"></canvas>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;">
+              <span style="font-size:9px;color:var(--text-muted)">← Pole 1</span>
+              <span style="font-size:9px;color:var(--text-muted)">Midpoint</span>
+              <span style="font-size:9px;color:var(--text-muted)">Pole 2 →</span>
+            </div>
+          </div>
+          <div class="visual-panel">
+            <h3><span class="icon">📐</span> Side Profile — Light Cone</h3>
+            <div class="side-profile-wrap" id="sideProfileWrap"></div>
+          </div>
+        </div>
+
+        <div class="cta-banner">
+          <div class="cta-content">
+            <h4>🌪️ Need Wind Load Calculations for These Poles?</h4>
+            <p>Every light pole requires ASCE 7 wind loading analysis for permit approval. We calculate effective projected area (EPA), base reactions, and foundation design — all 50 states.</p>
+          </div>
+          <a href="https://windcalculations.com" class="cta-button" target="_blank">Get Wind Calcs →</a>
+        </div>
+
+        <div class="results-table-wrap">
+          <h3>📊 Spacing Analysis — All Intervals</h3>
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th>Spacing</th>
+                <th>Eavg (fc)</th>
+                <th>Emin (fc)</th>
+                <th>Emax (fc)</th>
+                <th>Avg/Min</th>
+                <th>Max/Min</th>
+                <th>Poles/Mile</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="resultsBody"></tbody>
+          </table>
+        </div>
+
+        <div class="cta-services">
+          <a href="https://windcalculations.com" class="cta-service-card" target="_blank">
+            <span class="arrow">→</span>
+            <div class="svc-icon">💨</div>
+            <h5>Wind Pressure Calculations</h5>
+            <p>ASCE 7-22 C&C and MWFRS wind loads for structures, signs, and equipment. All 50 states.</p>
+          </a>
+          <a href="https://oasisengineering.com" class="cta-service-card" target="_blank">
+            <span class="arrow">→</span>
+            <div class="svc-icon">📐</div>
+            <h5>Pole EPA & Foundation Design</h5>
+            <p>Effective projected area analysis, base plate design, and anchor bolt calcs for light poles.</p>
+          </a>
+          <a href="https://oasisengineering.com" class="cta-service-card" target="_blank">
+            <span class="arrow">→</span>
+            <div class="svc-icon">🏗️</div>
+            <h5>Structural Engineering</h5>
+            <p>PE-sealed drawings and calculations. Licensed in 37 states. Container, steel, wood, concrete.</p>
+          </a>
+        </div>
+
+        <div class="calc-footer">
+          <strong>Disclaimer:</strong> For preliminary analysis only. Results must be verified by a licensed professional. Oasis Engineering LLC assumes no liability for design decisions based on this tool.
+          <br>© 2026 <a href="https://oasisengineering.com" target="_blank">Oasis Engineering LLC</a> — COA #35420 | Tampa, FL | <a href="https://windcalculations.com" target="_blank">windcalculations.com</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let iesData = null;
+let arrangement = 'single';
+
+// ============================================================
+// IES PARSER v2.0
+// Fixes: TILT=INCLUDE, candela multiplier, absolute photometry,
+//        quadrant symmetry
+// ============================================================
+function parseIES(text) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  let tiltIdx = -1, luminaireName = '';
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes('[LUMINAIRE]')) luminaireName = lines[i].split(']').pop().trim();
+    if (lines[i].trim().startsWith('TILT=')) { tiltIdx = i; break; }
+  }
+
+  // Parse ALL numbers after TILT line into one flat array
+  const nums = lines.slice(tiltIdx + 1).join(' ').match(/-?\d+\.?\d*/g).map(Number);
+  let idx = 0;
+
+  // FIX: Skip TILT=INCLUDE data block by index (more robust than line counting)
+  const tiltLine = lines[tiltIdx].trim();
+  if (tiltLine === 'TILT=INCLUDE') {
+    idx++; // lamp-to-luminaire geometry
+    const nTiltAngles = Math.round(nums[idx++]);
+    idx += nTiltAngles * 2; // skip angle values + multiplier values
+  }
+
+  const nL = nums[idx++];
+  let lumens = nums[idx++];
+  const candelaMult = nums[idx++]; // FIX: stored for application
+  const nV = Math.round(nums[idx++]), nH = Math.round(nums[idx++]);
+  const photoType = nums[idx++], unitsType = nums[idx++];
+  const width = nums[idx++], length = nums[idx++], height = nums[idx++];
+  const bf = nums[idx++], fut = nums[idx++], watts = nums[idx++];
+  const va = nums.slice(idx, idx + nV); idx += nV;
+  const ha = nums.slice(idx, idx + nH); idx += nH;
+  const cd = [];
+  for (let hi = 0; hi < nH; hi++) {
+    const p = [];
+    for (let vi = 0; vi < nV; vi++) p.push(nums[idx++] * candelaMult); // FIX: apply multiplier
+    cd.push(p);
+  }
+
+  // FIX: Absolute photometry — if lumens <= 0, integrate candela web
+  let isAbsolute = false;
+  if (lumens <= 0) {
+    isAbsolute = true;
+    let totalFlux = 0;
+    for (let hi = 0; hi < nH - 1; hi++) {
+      const h1 = ha[hi] * Math.PI / 180, h2 = ha[hi + 1] * Math.PI / 180;
+      const dH = h2 - h1;
+      for (let vi = 0; vi < nV - 1; vi++) {
+        const v1 = va[vi] * Math.PI / 180, v2 = va[vi + 1] * Math.PI / 180;
+        const avgCd = (cd[hi][vi] + cd[hi][vi + 1] + cd[hi + 1][vi] + cd[hi + 1][vi + 1]) / 4;
+        totalFlux += avgCd * Math.sin((v1 + v2) / 2) * (v2 - v1) * dH;
+      }
+    }
+    const maxHa = ha[ha.length - 1];
+    if (maxHa <= 91) totalFlux *= 4;
+    else if (maxHa <= 181) totalFlux *= 2;
+    lumens = Math.round(totalFlux);
+  }
+
+  return {
+    name: luminaireName, lumens, watts, vertAngles: va, horizAngles: ha,
+    candela: cd, numVert: nV, numHoriz: nH, isAbsolute, candelaMult
+  };
+}
+
+// FIX: Quadrant symmetry (maxHa ~90) + bilateral (maxHa ~180)
+function getCandela(ies, vd, hd) {
+  hd = ((hd % 360) + 360) % 360;
+  const maxHa = ies.horizAngles[ies.horizAngles.length - 1];
+  if (maxHa <= 91) {
+    if (hd > 270) hd = 360 - hd;
+    else if (hd > 180) hd = hd - 180;
+    else if (hd > 90) hd = 180 - hd;
+  } else if (maxHa <= 181) {
+    if (hd > 180) hd = 360 - hd;
+  }
+  const va = ies.vertAngles, ha = ies.horizAngles;
+  vd = Math.max(va[0], Math.min(va[va.length - 1], vd));
+  hd = Math.max(ha[0], Math.min(ha[ha.length - 1], hd));
+  let vi = 0;
+  for (let i = 0; i < va.length - 1; i++) { if (va[i + 1] <= vd) vi = i + 1; else break; }
+  vi = Math.min(vi, va.length - 2);
+  const vf = va[vi + 1] !== va[vi] ? (vd - va[vi]) / (va[vi + 1] - va[vi]) : 0;
+  let hi = 0;
+  for (let i = 0; i < ha.length - 1; i++) { if (ha[i + 1] <= hd) hi = i + 1; else break; }
+  hi = Math.min(hi, ha.length - 2);
+  const hf = ha[hi + 1] !== ha[hi] ? (hd - ha[hi]) / (ha[hi + 1] - ha[hi]) : 0;
+  const c00 = ies.candela[hi][vi], c01 = ies.candela[hi][vi + 1];
+  const c10 = ies.candela[hi + 1][vi], c11 = ies.candela[hi + 1][vi + 1];
+  return (c00 + vf * (c01 - c00)) * (1 - hf) + (c10 + vf * (c11 - c10)) * hf;
+}
+
+// FIX #1: 90° rotation — atan2(dx,dy) so 0° horiz = across road (+Y per IES Type C)
+// FIX #2: rotDeg parameter for staggered far-side poles (180°)
+function calcE(ies, px2, py2, mh, x, y, rotDeg) {
+  rotDeg = rotDeg || 0;
+  const dx = x - px2, dy = y - py2;
+  const d = Math.sqrt(dx * dx + dy * dy + mh * mh);
+  if (!d) return 0;
+  const hd = Math.sqrt(dx * dx + dy * dy);
+  const vertAngle = Math.atan2(hd, mh) * 180 / Math.PI;
+  // IES Type C: 0° = across road (+Y direction), 90° = along road (+X)
+  let horizAngle = Math.atan2(dx, dy) * 180 / Math.PI;
+  horizAngle = ((horizAngle + rotDeg) % 360 + 360) % 360;
+  return getCandela(ies, vertAngle, horizAngle) * (mh / d) / (d * d);
+}
+
+// FIX #6: Grid placement at zone centers, not boundaries
+function analyzeSpacing(ies, mH, sp, rW, off, llf, arr) {
+  const nX = 40, nY = 11, vals = [];
+  const stepX = sp / nX, stepY = rW / nY;
+  for (let xi = 0; xi < nX; xi++) {
+    const x = stepX / 2 + xi * stepX; // zone center
+    for (let yi = 0; yi < nY; yi++) {
+      const y = stepY / 2 + yi * stepY; // zone center
+      let E = 0;
+      for (let p = -1; p <= 2; p++) E += calcE(ies, p * sp, -off, mH, x, y, 0);
+      if (arr === 'staggered') {
+        for (let p = -1; p <= 2; p++) E += calcE(ies, p * sp + sp / 2, rW + off, mH, x, y, 180);
+      }
+      vals.push(E * llf);
+    }
+  }
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  return {
+    avg, min: mn, max: mx,
+    avgMinRatio: mn > 0 ? avg / mn : Infinity, // IES RP-8 standard: Avg/Min
+    maxMin: mn > 0 ? mx / mn : Infinity,
+    grid: vals, numX: nX, numY: nY
+  };
+}
+
+// ============================================================
+// UI CONTROLS
+// ============================================================
+function setArrangement(a) {
+  arrangement = a;
+  document.querySelectorAll('.arr-btn').forEach(b => b.classList.toggle('active', b.dataset.arr === a));
+}
+
+function updateRoadClass() {
+  const sel = document.getElementById('roadClass');
+  const opt = sel.options[sel.selectedIndex];
+  const fc = parseFloat(opt.dataset.fc);
+  const uni = parseFloat(opt.dataset.uni);
+  const speed = opt.dataset.speed || '—';
+  document.getElementById('targetFc').value = fc;
+  document.getElementById('targetFcVal').textContent = fc.toFixed(1) + ' fc';
+  document.getElementById('targetUni').value = uni;
+  document.getElementById('targetUniVal').textContent = uni.toFixed(1) + ':1';
+  const badge = document.getElementById('autoTargetBadge');
+  if (sel.value === 'custom') {
+    badge.innerHTML = 'Manual mode — set your own targets below';
+  } else {
+    badge.innerHTML = `RP-8 → Target: ${fc} fc | Max Avg/Min: ${uni.toFixed(1)}:1 | ${speed} mph`;
+  }
+}
+
+document.getElementById('mountHeight').addEventListener('input', e => {
+  document.getElementById('mountHeightVal').textContent = e.target.value + ' ft';
+});
+document.getElementById('targetFc').addEventListener('input', e => {
+  document.getElementById('targetFcVal').textContent = parseFloat(e.target.value).toFixed(1) + ' fc';
+  document.getElementById('roadClass').value = 'custom';
+  document.getElementById('autoTargetBadge').innerHTML = 'Manual mode — set your own targets below';
+});
+document.getElementById('targetUni').addEventListener('input', e => {
+  document.getElementById('targetUniVal').textContent = parseFloat(e.target.value).toFixed(1) + ':1';
+});
+document.getElementById('llf').addEventListener('input', e => {
+  document.getElementById('llfVal').textContent = parseFloat(e.target.value).toFixed(2);
+});
+
+// Upload
+const uploadZone = document.getElementById('uploadZone');
+const iesInput = document.getElementById('iesInput');
+uploadZone.addEventListener('click', () => iesInput.click());
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.style.borderColor = 'var(--accent)'; });
+uploadZone.addEventListener('dragleave', () => { if (!iesData) uploadZone.style.borderColor = ''; });
+uploadZone.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+iesInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      iesData = parseIES(e.target.result);
+      uploadZone.classList.add('has-file');
+      document.querySelector('#fileName span').textContent = file.name;
+      const efficacy = iesData.watts > 0 ? (iesData.lumens / iesData.watts).toFixed(0) : '—';
+      document.getElementById('fileStats').innerHTML = `
+        <div class="file-stat">Lumens: <span>${iesData.lumens.toLocaleString()}${iesData.isAbsolute ? ' (abs)' : ''}</span></div>
+        <div class="file-stat">Watts: <span>${iesData.watts.toFixed(1)}W</span></div>
+        <div class="file-stat">Efficacy: <span>${efficacy} lm/W</span></div>
+        <div class="file-stat">Grid: <span>${iesData.numVert}×${iesData.numHoriz}</span></div>`;
+      document.getElementById('calcBtn').disabled = false;
+      document.getElementById('calcBtn').textContent = '⚡ Calculate Spacing';
+    } catch (err) { alert('Error parsing IES: ' + err.message); }
+  };
+  reader.readAsText(file);
+}
+
+// ============================================================
+// CALCULATION + RENDERING
+// ============================================================
+function runCalculation() {
+  if (!iesData) return;
+  const mH = +document.getElementById('mountHeight').value;
+  const tFc = +document.getElementById('targetFc').value;
+  const tUni = +document.getElementById('targetUni').value; // Avg/Min ratio (e.g. 4.0)
+  const rW = +document.getElementById('roadWidth').value;
+  const off = +document.getElementById('poleOffset').value;
+  const llf = +document.getElementById('llf').value;
+  const minS = +document.getElementById('minSpacing').value;
+  const maxS = +document.getElementById('maxSpacing').value;
+
+  const spacings = [];
+  for (let s = minS; s <= maxS; s += 10) spacings.push(s);
+
+  const results = [];
+  let bestSpacing = minS, bestResult = null;
+
+  for (const s of spacings) {
+    const r = analyzeSpacing(iesData, mH, s, rW, off, llf, arrangement);
+    r.spacing = s;
+    // IES RP-8 check: Eavg >= target AND Avg/Min <= target ratio
+    if (r.avg >= tFc && r.avgMinRatio <= tUni) {
+      r.status = 'pass'; bestSpacing = s; bestResult = r;
+    } else if (r.avg >= tFc && r.avgMinRatio <= tUni * 1.5) {
+      r.status = 'warn';
+    } else {
+      r.status = 'fail';
+    }
+    results.push(r);
+  }
+  if (!bestResult) bestResult = results[0];
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('results').classList.add('visible');
+
+  renderSummary(bestSpacing, bestResult, tFc, tUni, mH);
+  renderTable(results, bestSpacing);
+  renderHeatmap(bestResult);
+  renderSideProfile(mH, bestSpacing, rW, off, bestResult);
+}
+
+function renderSummary(sp, r, tFc, tUni, mH) {
+  const sc = r.status === 'pass' ? 'pass' : r.status === 'warn' ? 'warn' : 'fail';
+  const uc = r.avgMinRatio <= tUni ? 'pass' : r.avgMinRatio <= tUni * 1.5 ? 'warn' : 'fail';
+  document.getElementById('summaryCards').innerHTML = `
+    <div class="summary-card ${sc}">
+      <div class="label">Max Recommended Spacing</div>
+      <div class="value">${sp} ft</div>
+      <div class="detail">${mH} ft mount | ${arrangement} side</div>
+    </div>
+    <div class="summary-card ${r.avg >= tFc ? 'pass' : 'fail'}">
+      <div class="label">Average Illuminance</div>
+      <div class="value">${r.avg.toFixed(2)} fc</div>
+      <div class="detail">Target: ≥ ${tFc.toFixed(1)} fc ${r.avg >= tFc ? '✓' : '✗'}</div>
+    </div>
+    <div class="summary-card ${uc}">
+      <div class="label">Uniformity (Avg/Min)</div>
+      <div class="value">${r.avgMinRatio.toFixed(1)}:1</div>
+      <div class="detail">Max: ${tUni.toFixed(1)}:1 ${r.avgMinRatio <= tUni ? '✓' : '⚠'}</div>
+    </div>
+    <div class="summary-card info">
+      <div class="label">Poles per Mile</div>
+      <div class="value">${Math.ceil(5280 / sp)}</div>
+      <div class="detail">${iesData.name} @ ${iesData.watts.toFixed(0)}W</div>
+    </div>`;
+}
+
+function renderTable(results, bestSp) {
+  document.getElementById('resultsBody').innerHTML = results.map(r => {
+    const rec = r.spacing === bestSp;
+    const b = r.status === 'pass' ? '<span class="status-badge pass">✓ PASS</span>'
+      : r.status === 'warn' ? '<span class="status-badge warn">⚠ MARGINAL</span>'
+      : '<span class="status-badge fail">✗ FAIL</span>';
+    return `<tr class="${rec ? 'recommended' : ''}">
+      <td>${r.spacing} ft${rec ? ' ★' : ''}</td>
+      <td>${r.avg.toFixed(2)}</td><td>${r.min.toFixed(2)}</td><td>${r.max.toFixed(2)}</td>
+      <td>${r.avgMinRatio.toFixed(1)}:1</td><td>${r.maxMin.toFixed(1)}:1</td>
+      <td>${Math.ceil(5280 / r.spacing)}</td><td>${b}</td></tr>`;
+  }).join('');
+}
+
+function renderHeatmap(result) {
+  const canvas = document.getElementById('heatmapCanvas');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const { grid, numX, numY, max } = result;
+  const cW = w / numX, cH = h / numY;
+  for (let xi = 0; xi < numX; xi++) {
+    for (let yi = 0; yi < numY; yi++) {
+      const n = Math.min(grid[xi * numY + yi] / (max * 0.8), 1);
+      let r, g, b;
+      if (n < 0.25) { const t = n / 0.25; r = 5; g = 10 + t * 60 | 0; b = 30 + t * 120 | 0; }
+      else if (n < 0.5) { const t = (n - 0.25) / 0.25; r = t * 20 | 0; g = 70 + t * 150 | 0; b = 150 + t * 50 | 0; }
+      else if (n < 0.75) { const t = (n - 0.5) / 0.25; r = 20 + t * 220 | 0; g = 220 - t * 30 | 0; b = 200 - t * 160 | 0; }
+      else { const t = (n - 0.75) / 0.25; r = 240 + t * 15 | 0; g = 190 - t * 90 | 0; b = 40 - t * 30 | 0; }
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(xi * cW, (numY - 1 - yi) * cH, cW + 1, cH + 1);
+    }
+  }
+  ctx.font = '10px JetBrains Mono'; ctx.textAlign = 'center';
+  const mid = Math.floor(numX / 2);
+  for (const xi of [0, mid, numX - 1]) {
+    for (const yi of [0, Math.floor(numY / 2), numY - 1]) {
+      const v = grid[xi * numY + yi];
+      const x = xi * cW + cW / 2, y = (numY - 1 - yi) * cH + cH / 2 + 4;
+      ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(x - 20, y - 10, 40, 14);
+      ctx.fillStyle = '#fff'; ctx.fillText(v.toFixed(2), x, y);
+    }
+  }
+  const bY = h - 16, bH = 8, bW = 110, bX = w - bW - 8;
+  for (let i = 0; i < bW; i++) {
+    const n = i / bW; let r2, g2, b2;
+    if (n < 0.25) { const t = n / 0.25; r2 = 5; g2 = 10 + t * 60 | 0; b2 = 30 + t * 120 | 0; }
+    else if (n < 0.5) { const t = (n - 0.25) / 0.25; r2 = t * 20 | 0; g2 = 70 + t * 150 | 0; b2 = 150 + t * 50 | 0; }
+    else if (n < 0.75) { const t = (n - 0.5) / 0.25; r2 = 20 + t * 220 | 0; g2 = 220 - t * 30 | 0; b2 = 200 - t * 160 | 0; }
+    else { const t = (n - 0.75) / 0.25; r2 = 240 + t * 15 | 0; g2 = 190 - t * 90 | 0; b2 = 40 - t * 30 | 0; }
+    ctx.fillStyle = `rgb(${r2},${g2},${b2})`; ctx.fillRect(bX + i, bY, 1, bH);
+  }
+  ctx.fillStyle = '#fff'; ctx.font = '8px JetBrains Mono';
+  ctx.textAlign = 'left'; ctx.fillText('0 fc', bX, bY - 2);
+  ctx.textAlign = 'right'; ctx.fillText((result.max * 0.8).toFixed(1) + '+ fc', bX + bW, bY - 2);
+}
+
+function renderSideProfile(mH, sp, rW, off, result) {
+  const wrap = document.getElementById('sideProfileWrap');
+  const svgW = 600, svgH = 280, pad = 40;
+  const sc = Math.min((svgW - pad * 2) / (sp * 1.3), (svgH - pad * 2) / (mH * 1.4));
+  const gY = svgH - pad, oX = pad + sp * 0.15 * sc;
+  const px = ft => oX + ft * sc, py = ft => gY - ft * sc;
+  const p1X = px(0), p2X = px(sp), ptY = py(mH);
+  const cR = mH * Math.tan(70 * Math.PI / 180);
+  const uniOk = result.avgMinRatio <= 4.0;
+
+  wrap.innerHTML = `
+  <svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="cg" x1=".5" y1="0" x2=".5" y2="1">
+        <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.02"/>
+      </linearGradient>
+    </defs>
+    <rect x="${pad}" y="${gY}" width="${svgW - pad * 2}" height="18" rx="2" fill="#1e293b" stroke="#334155" stroke-width="0.5"/>
+    <line x1="${pad}" y1="${gY}" x2="${svgW - pad}" y2="${gY}" stroke="#475569" stroke-width="1" stroke-dasharray="6,4"/>
+    <line x1="${pad}" y1="${gY + 9}" x2="${svgW - pad}" y2="${gY + 9}" stroke="#eab308" stroke-width="1" stroke-dasharray="12,8" opacity="0.4"/>
+    <polygon points="${p1X},${ptY} ${px(-cR)},${gY} ${px(cR)},${gY}" fill="url(#cg)"/>
+    <polygon points="${p2X},${ptY} ${px(sp - cR)},${gY} ${px(sp + cR)},${gY}" fill="url(#cg)"/>
+    <line x1="${p1X}" y1="${gY}" x2="${p1X}" y2="${ptY}" stroke="#94a3b8" stroke-width="2.5"/>
+    <circle cx="${p1X}" cy="${ptY}" r="5" fill="#f59e0b" stroke="#fbbf24" stroke-width="1.5"/>
+    <circle cx="${p1X}" cy="${ptY}" r="10" fill="none" stroke="#f59e0b" opacity="0.3" stroke-width="1">
+      <animate attributeName="r" values="8;14;8" dur="2s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite"/>
+    </circle>
+    <line x1="${p2X}" y1="${gY}" x2="${p2X}" y2="${ptY}" stroke="#94a3b8" stroke-width="2.5"/>
+    <circle cx="${p2X}" cy="${ptY}" r="5" fill="#f59e0b" stroke="#fbbf24" stroke-width="1.5"/>
+    <circle cx="${p2X}" cy="${ptY}" r="10" fill="none" stroke="#f59e0b" opacity="0.3" stroke-width="1">
+      <animate attributeName="r" values="8;14;8" dur="2s" repeatCount="indefinite" begin="1s"/>
+      <animate attributeName="opacity" values="0.3;0.1;0.3" dur="2s" repeatCount="indefinite" begin="1s"/>
+    </circle>
+    <line x1="${p1X}" y1="${gY + 32}" x2="${p2X}" y2="${gY + 32}" stroke="#3b82f6" stroke-width="1"/>
+    <line x1="${p1X}" y1="${gY + 27}" x2="${p1X}" y2="${gY + 37}" stroke="#3b82f6" stroke-width="1"/>
+    <line x1="${p2X}" y1="${gY + 27}" x2="${p2X}" y2="${gY + 37}" stroke="#3b82f6" stroke-width="1"/>
+    <text x="${(p1X + p2X) / 2}" y="${gY + 45}" text-anchor="middle" fill="#3b82f6" font-family="JetBrains Mono" font-size="11" font-weight="600">${sp} ft</text>
+    <line x1="${p1X - 18}" y1="${gY}" x2="${p1X - 18}" y2="${ptY}" stroke="#10b981" stroke-width="1"/>
+    <line x1="${p1X - 23}" y1="${gY}" x2="${p1X - 13}" y2="${gY}" stroke="#10b981" stroke-width="1"/>
+    <line x1="${p1X - 23}" y1="${ptY}" x2="${p1X - 13}" y2="${ptY}" stroke="#10b981" stroke-width="1"/>
+    <text x="${p1X - 26}" y="${(gY + ptY) / 2 + 4}" text-anchor="end" fill="#10b981" font-family="JetBrains Mono" font-size="10" font-weight="600">${mH} ft</text>
+    <text x="${p1X}" y="${gY - 7}" text-anchor="middle" fill="#f59e0b" font-family="JetBrains Mono" font-size="9" font-weight="600">${result.max.toFixed(1)} fc</text>
+    <text x="${(p1X + p2X) / 2}" y="${gY - 7}" text-anchor="middle" fill="${result.min >= 0.25 ? '#10b981' : '#ef4444'}" font-family="JetBrains Mono" font-size="9" font-weight="600">${result.min.toFixed(2)} fc min</text>
+    <rect x="${svgW - pad - 120}" y="8" width="120" height="26" rx="5" fill="${uniOk ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)'}" stroke="${uniOk ? '#10b981' : '#ef4444'}" stroke-width="1"/>
+    <text x="${svgW - pad - 60}" y="26" text-anchor="middle" fill="${uniOk ? '#10b981' : '#ef4444'}" font-family="DM Sans" font-size="10" font-weight="700">${uniOk ? '✓ COMPLIANT' : '⚠ REVIEW'}</text>
+    <text x="${pad + 2}" y="16" fill="#5e6a82" font-family="JetBrains Mono" font-size="9">${iesData.name} — ${iesData.lumens.toLocaleString()} lm</text>
+  </svg>`;
+}
+
+updateRoadClass();
+</script>
+</body>
+</html>
