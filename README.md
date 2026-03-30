@@ -191,7 +191,7 @@ MIT — Use it, fork it, embed it, sell it. Attribution appreciated but not requ
 
 ## About
 
-Built by [Oasis Engineering LLC](https://oasisengineering.com) (FL COA #35420), a structural and wind engineering firm based in Tampa, FL, licensed in 37 states.
+Built by [Oasis Engineering LLC](https://oasisengineering.com), a structural and wind engineering firm based in Tampa, FL.
 
 - **Wind Calculations** — [windcalculations.com](https://windcalculations.com)
 - **Structural Engineering** — [oasisengineering.com](https://oasisengineering.com)
