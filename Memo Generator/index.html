@@ -1,0 +1,1399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Photometric Memo Generator — Free IES Roadway Lighting Analysis</title>
+<meta name="description" content="Free open-source photometric analysis tool. Upload an IES file, set roadway geometry, and generate a printable analytical memo. Computed point-by-point on the actual photometric file.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-app: #0d1525;
+  --bg-panel: #1a2236;
+  --bg-deeper: #0a0f1c;
+  --border: #2a3450;
+  --border-soft: #1f2842;
+  --text: #e2e8f0;
+  --text-soft: #94a3b8;
+  --text-faint: #5e6a82;
+  --accent: #f59e0b;
+  --accent-bright: #fbbf24;
+  --link: #38bdf8;
+  --pass: #10b981;
+  --pass-bg: #064e3b;
+  --warn: #f59e0b;
+  --fail: #ef4444;
+  --fail-bg: #5b1a1f;
+
+  --paper: #ffffff;
+  --paper-tint: #f8f6f1;
+  --ink: #1a1a1a;
+  --ink-soft: #4a4a4a;
+  --ink-faint: #8a8a85;
+  --rule: #d8d4c8;
+  --rule-soft: #ebe7dc;
+  --paper-accent: #0e3f5c;
+  --paper-pass: #1e6c4a;
+  --paper-pass-bg: #e2efe7;
+  --paper-fail: #7a1a23;
+  --paper-fail-bg: #f3dee0;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  background: var(--bg-app);
+  font-family: 'Inter', sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+a { color: var(--link); }
+
+/* ============ ACKNOWLEDGMENT GATE ============ */
+.gate-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 16, 0.95);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.gate-overlay.hidden { display: none; }
+.gate-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  max-width: 620px;
+  width: 100%;
+  padding: 32px 36px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.gate-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.gate-title {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
+}
+.gate-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-soft);
+  margin-bottom: 16px;
+}
+.gate-body p { margin-bottom: 10px; }
+.gate-body strong { color: var(--text); }
+.gate-list {
+  background: var(--bg-deeper);
+  border-left: 3px solid var(--accent);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-soft);
+}
+.gate-list li { margin-left: 18px; margin-bottom: 4px; }
+.gate-checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  background: var(--bg-deeper);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 16px;
+  cursor: pointer;
+}
+.gate-checkbox-row:hover { border-color: var(--accent); }
+.gate-checkbox-row input {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.gate-checkbox-row label {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+  cursor: pointer;
+  flex: 1;
+}
+.gate-btn {
+  width: 100%;
+  background: var(--accent);
+  color: #1a1a1a;
+  border: none;
+  padding: 12px;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.gate-btn:hover:not(:disabled) { background: var(--accent-bright); }
+.gate-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ============ TOP BANNER ============ */
+.top-banner {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 32px;
+}
+.banner-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.brand-logo {
+  width: 36px;
+  height: 36px;
+  background: var(--accent);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+.brand-text {
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+.brand-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--text-faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.nav-links {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+}
+.nav-links a {
+  font-size: 13px;
+  color: var(--text-soft);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.nav-links a:hover { color: var(--accent); }
+
+/* ============ HERO ============ */
+.hero {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 36px 32px 16px;
+}
+.hero-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.hero-title {
+  font-family: 'Fraunces', serif;
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  margin-bottom: 10px;
+}
+.hero-sub {
+  font-size: 14px;
+  color: var(--text-soft);
+  line-height: 1.55;
+  max-width: 720px;
+  margin-bottom: 20px;
+}
+
+/* ============ MAIN GRID ============ */
+.main-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 32px 32px;
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+.inputs-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 22px;
+  position: sticky;
+  top: 16px;
+}
+.inputs-title {
+  font-family: 'Fraunces', serif;
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.inputs-title small {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-faint);
+  font-weight: 400;
+}
+.fieldset {
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.fieldset:last-of-type { border-bottom: none; padding-bottom: 0; margin-bottom: 8px; }
+.fieldset-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-faint);
+  margin-bottom: 10px;
+}
+.field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.field label { font-size: 12px; color: var(--text-soft); }
+.field label .u {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--text-faint);
+  margin-left: 2px;
+}
+.field input, .field select {
+  background: var(--bg-deeper);
+  color: var(--text);
+  border: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 5px 9px;
+  border-radius: 3px;
+  width: 110px;
+  text-align: right;
+}
+.field select { text-align: left; padding-right: 4px; }
+.field input[type="text"] { text-align: left; width: 140px; font-family: 'Inter', sans-serif; font-size: 11.5px; }
+.field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+.field-full { grid-template-columns: 1fr; gap: 4px; }
+.field-full input { width: 100%; text-align: left; }
+
+.ies-drop {
+  background: var(--bg-deeper);
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+  padding: 14px 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ies-drop:hover { border-color: var(--accent); }
+.ies-drop.loaded {
+  border: 1px solid var(--accent);
+  background: rgba(245, 158, 11, 0.08);
+  text-align: left;
+}
+.ies-drop input { display: none; }
+.ies-prompt { font-size: 12px; color: var(--text-soft); }
+.ies-prompt strong { color: var(--accent); display: block; font-size: 13px; margin-bottom: 4px; }
+.ies-info { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+.ies-info .name { color: var(--accent); margin-bottom: 4px; }
+.ies-info .stat { color: var(--text-soft); font-size: 10.5px; line-height: 1.5; }
+.ies-info .stat span { color: var(--text); }
+
+.btn-primary {
+  background: var(--accent);
+  color: #1a1a1a;
+  border: none;
+  padding: 11px;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 10px;
+  transition: background 0.15s;
+}
+.btn-primary:hover:not(:disabled) { background: var(--accent-bright); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-soft);
+  border: 1px solid var(--border);
+  padding: 9px;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  width: 100%;
+  margin-top: 6px;
+  transition: all 0.15s;
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ============ MEMO PREVIEW ============ */
+.memo-wrap {
+  background: #ece8de;
+  border-radius: 6px;
+  padding: 24px;
+  border: 1px solid var(--border);
+}
+.memo-wrap-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+.memo-wrap-title {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-faint);
+}
+.empty-state {
+  background: var(--bg-panel);
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 80px 32px;
+  text-align: center;
+  color: var(--text-soft);
+}
+.empty-state h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+.empty-state p { font-size: 13px; line-height: 1.6; max-width: 380px; margin: 0 auto; }
+
+.memo { max-width: 8.5in; margin: 0 auto; }
+.memo-page {
+  width: 100%;
+  max-width: 8.5in;
+  background: var(--paper);
+  padding: 0.5in 0.65in;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 12px 48px rgba(28,28,28,0.12);
+  margin-bottom: 16px;
+  color: var(--ink);
+}
+
+.letterhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--paper-accent);
+  margin-bottom: 16px;
+}
+.firm-name {
+  font-family: 'Fraunces', serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--paper-accent);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+.firm-meta {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+.doc-id {
+  text-align: right;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+.doc-id .label { color: var(--ink-faint); }
+.doc-id .val { color: var(--ink); font-weight: 600; }
+
+.letterhead-slim {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--paper-accent);
+  margin-bottom: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-soft);
+}
+.firm-slim {
+  font-family: 'Fraunces', serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--paper-accent);
+}
+.meta-slim {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 9px;
+  color: var(--ink-faint);
+}
+
+.memo-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--paper-accent);
+  margin-bottom: 5px;
+}
+.memo-title {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+  margin-bottom: 12px;
+  color: var(--ink);
+}
+
+.scope-banner {
+  background: #fff8e6;
+  border: 1px solid #f59e0b;
+  border-left: 4px solid #f59e0b;
+  padding: 9px 12px;
+  margin-bottom: 14px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: #6b4d00;
+}
+.scope-banner strong {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8a5a00;
+  display: block;
+  margin-bottom: 3px;
+}
+
+.addressing {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: 4px 14px;
+  font-size: 11px;
+  margin-bottom: 14px;
+  padding: 9px 12px;
+  background: var(--paper-tint);
+  border-left: 3px solid var(--paper-accent);
+  line-height: 1.4;
+}
+.addressing .lbl {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+  padding-top: 2px;
+}
+.addressing .val { color: var(--ink); }
+
+section.memo-sec { margin-bottom: 12px; }
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 7px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.sec-num {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  color: var(--paper-accent);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+.sec-title {
+  font-family: 'Fraunces', serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.body-text { font-size: 11px; line-height: 1.5; color: var(--ink); }
+.body-text p { margin-bottom: 6px; }
+
+.spec-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border: 1px solid var(--rule);
+}
+.spec-cell {
+  padding: 7px 10px;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+.spec-cell:nth-child(4n) { border-right: none; }
+.spec-cell:nth-last-child(-n+4) { border-bottom: none; }
+.spec-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  margin-bottom: 2px;
+}
+.spec-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.spec-val .u { font-size: 9px; color: var(--ink-faint); margin-left: 2px; }
+.spec-note {
+  font-family: 'Inter', sans-serif;
+  font-size: 8.5px;
+  color: var(--ink-faint);
+  font-style: italic;
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+.result-card {
+  border: 1px solid var(--rule);
+  background: var(--paper-tint);
+  padding: 10px 14px;
+}
+.result-row {
+  display: grid;
+  grid-template-columns: 1.4fr auto auto;
+  gap: 14px;
+  align-items: baseline;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--rule-soft);
+  font-size: 11px;
+}
+.result-row:last-child { border-bottom: none; }
+.result-row .metric { color: var(--ink-soft); }
+.result-row .metric strong { color: var(--ink); font-weight: 500; }
+.result-row .value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+.result-row .value .u { font-size: 9px; color: var(--ink-faint); margin-left: 2px; font-weight: 400; }
+.badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 2px;
+  letter-spacing: 0.06em;
+  min-width: 50px;
+  text-align: center;
+}
+.badge.pass { background: var(--paper-pass-bg); color: var(--paper-pass); }
+.badge.fail { background: var(--paper-fail-bg); color: var(--paper-fail); }
+
+.viz-card {
+  border: 1px solid var(--rule);
+  background: var(--paper);
+  margin-bottom: 12px;
+}
+.viz-head {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--rule-soft);
+  background: var(--paper-tint);
+  display: flex;
+  justify-content: space-between;
+}
+.viz-body { padding: 8px; }
+canvas { display: block; width: 100%; height: auto; }
+
+.key-strip {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  border: 1px solid var(--rule);
+  margin-bottom: 12px;
+}
+.key-cell {
+  padding: 9px 10px;
+  border-right: 1px solid var(--rule);
+  text-align: center;
+}
+.key-cell:last-child { border-right: none; }
+.key-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+  margin-bottom: 3px;
+}
+.key-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.key-val.pass { color: var(--paper-pass); }
+.key-val.fail { color: var(--paper-fail); }
+.key-val .u { font-size: 9px; color: var(--ink-faint); margin-left: 2px; font-weight: 400; }
+
+.verdict {
+  border-left: 4px solid var(--paper-accent);
+  background: linear-gradient(90deg, var(--paper-tint) 0%, transparent 100%);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.verdict h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--paper-accent);
+  margin-bottom: 5px;
+}
+.verdict p { font-size: 10.5px; line-height: 1.5; color: var(--ink); }
+.verdict.pass { border-left-color: var(--paper-pass); }
+.verdict.pass h3 { color: var(--paper-pass); }
+.verdict.fail { border-left-color: var(--paper-fail); }
+.verdict.fail h3 { color: var(--paper-fail); }
+
+.method-text { font-size: 9.5px; line-height: 1.5; color: var(--ink-soft); }
+.method-text p { margin-bottom: 5px; }
+.formula {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--ink);
+  background: var(--paper-tint);
+  padding: 5px 9px;
+  border-left: 2px solid var(--paper-accent);
+  margin: 5px 0;
+}
+
+.disclaimer-paper {
+  margin-top: 10px;
+  padding: 8px 11px;
+  background: var(--paper-tint);
+  border: 1px dashed var(--rule);
+  font-size: 8.5px;
+  line-height: 1.45;
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.tool-attrib {
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8px;
+  color: var(--ink-faint);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--rule-soft);
+}
+
+/* ============ PERSISTENT FOOTER DISCLAIMER ============ */
+.disclaimer-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #1a0e0e;
+  border-top: 2px solid #b91c1c;
+  padding: 10px 32px;
+  z-index: 50;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #fca5a5;
+}
+.disclaimer-bar-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.disclaimer-bar strong {
+  color: #fee2e2;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+.disclaimer-bar-text { flex: 1; }
+
+body.preview-mode { padding-bottom: 70px; }
+
+/* ============ PRINT ============ */
+@media print {
+  html, body { background: white; padding: 0; }
+  .top-banner, .hero, .inputs-panel, .memo-wrap-head, .empty-state,
+  .gate-overlay, .disclaimer-bar { display: none !important; }
+  .main-grid {
+    display: block;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+  .memo-wrap {
+    background: white;
+    border: none;
+    padding: 0;
+    border-radius: 0;
+  }
+  .memo { max-width: none; }
+  .memo-page {
+    margin: 0;
+    box-shadow: none;
+    page-break-after: always;
+    width: 100%;
+    padding: 0.5in 0.65in;
+  }
+  .memo-page:last-child { page-break-after: auto; }
+  @page { size: letter; margin: 0; }
+  section.memo-sec, .verdict, .disclaimer-paper { page-break-inside: avoid; }
+}
+
+@media (max-width: 1000px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .inputs-panel { position: static; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ ACKNOWLEDGMENT GATE ============ -->
+<div class="gate-overlay" id="gate">
+  <div class="gate-card">
+    <div class="gate-tag">Terms of Use · Read before continuing</div>
+    <div class="gate-title">This is an analytical estimation tool — not a stamped engineering deliverable.</div>
+    <div class="gate-body">
+      <p>This open-source tool produces a printable analytical estimate of roadway luminaire performance using the IES Lumen Method computed point-by-point against an uploaded manufacturer photometric file. The result is a useful preliminary screening — it is <strong>not</strong> a replacement for a professional engineering analysis.</p>
+    </div>
+    <div class="gate-list">
+      Outputs from this tool:
+      <ul>
+        <li>Are <strong>not</strong> stamped or sealed by a Professional Engineer</li>
+        <li>Are <strong>not</strong> a full-site photometric design</li>
+        <li>Are <strong>not</strong> intended for permitting, construction, public record filing, or jurisdiction-specific compliance certification</li>
+        <li>Do <strong>not</strong> account for intersection geometry, road curvature, light trespass, structural pole design, wind loading, or AHJ-specific criteria</li>
+        <li>Are based on user-supplied inputs which the tool does <strong>not</strong> independently validate</li>
+      </ul>
+    </div>
+    <div class="gate-body">
+      <p>This software is provided <strong>as-is, without warranty of any kind</strong>, express or implied, including but not limited to fitness for a particular purpose, accuracy, or non-infringement. The authors and contributors shall have no liability for any decision, design, construction outcome, code violation, financial loss, injury, or other consequence arising from the use of this tool or its outputs. By using this tool you assume full responsibility for verifying any results against current applicable standards and engaging a licensed Professional Engineer for any work intended for construction.</p>
+    </div>
+    <label class="gate-checkbox-row" for="ackBox">
+      <input type="checkbox" id="ackBox">
+      <span>I have read and understood the above. I acknowledge that outputs from this tool are analytical estimates only, are not engineering deliverables, are not stamped by a PE, and are not for permitting or construction. I agree to the disclaimer of warranties and limitation of liability stated above.</span>
+    </label>
+    <button class="gate-btn" id="gateBtn" disabled onclick="acknowledge()">Continue to Tool</button>
+  </div>
+</div>
+
+<!-- ============ TOP BANNER ============ -->
+<div class="top-banner">
+  <div class="banner-inner">
+    <div class="brand">
+      <div class="brand-logo">PM</div>
+      <div>
+        <div class="brand-text">Photometric Memo</div>
+        <div class="brand-sub">Open-Source IES Roadway Lighting Tool</div>
+      </div>
+    </div>
+    <div class="nav-links">
+      <a href="https://github.com/" target="_blank" rel="noopener">View on GitHub</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============ HERO ============ -->
+<div class="hero">
+  <div class="hero-tag">v1.0 · Free &amp; Open Source · Analytical Estimate</div>
+  <h1 class="hero-title">Photometric Memo Generator</h1>
+  <p class="hero-sub">Upload an IES file, enter your roadway geometry, and download a printable analytical memo for a single configuration. Computed point-by-point on the actual photometric file using the IES Lumen Method. All processing happens in your browser — no file ever leaves your machine.</p>
+</div>
+
+<!-- ============ MAIN ============ -->
+<div class="main-grid">
+
+  <div class="inputs-panel">
+    <div class="inputs-title">Inputs <small id="inputsStatus">Awaiting IES…</small></div>
+
+    <div class="fieldset">
+      <div class="fieldset-label">Photometric File</div>
+      <label class="ies-drop" id="iesDrop">
+        <input type="file" id="iesInput" accept=".ies,.IES">
+        <div id="iesDropContent" class="ies-prompt">
+          <strong>+ Upload IES file</strong>
+          Manufacturer photometric data (.ies)
+        </div>
+      </label>
+    </div>
+
+    <div class="fieldset">
+      <div class="fieldset-label">Geometry</div>
+      <div class="field"><label>Pole Spacing<span class="u">ft</span></label><input type="number" id="spacing" value="150" min="40" max="500"></div>
+      <div class="field"><label>Mounting Height<span class="u">ft</span></label><input type="number" id="mh" value="25" min="12" max="60"></div>
+      <div class="field"><label>Road Width<span class="u">ft</span></label><input type="number" id="roadW" value="24" min="8" max="100"></div>
+      <div class="field"><label>Road Width Note</label><input type="text" id="roadWNote" placeholder="optional"></div>
+      <div class="field"><label>Pole Offset<span class="u">ft</span></label><input type="number" id="offset" value="2" min="0" max="20"></div>
+      <div class="field"><label>Arrangement</label>
+        <select id="arr">
+          <option value="staggered" selected>Staggered both sides</option>
+          <option value="single">Single side</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="fieldset">
+      <div class="fieldset-label">Loss Factor &amp; Targets</div>
+      <div class="field"><label>Light Loss Factor</label><input type="number" id="llf" value="0.80" min="0.5" max="1.0" step="0.01"></div>
+      <div class="field"><label>Target E<sub>avg</sub><span class="u">fc</span></label><input type="number" id="tFc" value="0.6" step="0.1"></div>
+      <div class="field"><label>Avg/Min Limit</label><input type="number" id="tUni" value="4.0" step="0.1"></div>
+    </div>
+
+    <div class="fieldset">
+      <div class="fieldset-label">Identification (Optional)</div>
+      <div class="field field-full"><label>Project Name</label><input type="text" id="project" placeholder="e.g. Main Street Lighting"></div>
+      <div class="field field-full"><label>Prepared For</label><input type="text" id="recipient" placeholder="Recipient"></div>
+      <div class="field field-full"><label>Prepared By</label><input type="text" id="preparer" placeholder="Your name / firm"></div>
+    </div>
+
+    <button class="btn-primary" id="printBtn" onclick="window.print()" disabled>Download / Print PDF</button>
+    <button class="btn-ghost" onclick="resetAll()">Reset to defaults</button>
+  </div>
+
+  <div>
+    <div class="memo-wrap-head">
+      <div class="memo-wrap-title">Live Preview</div>
+      <div class="memo-wrap-title" id="previewMeta">—</div>
+    </div>
+
+    <div class="memo-wrap">
+      <div id="emptyState" class="empty-state">
+        <h3>Upload an IES file to begin</h3>
+        <p>Once you provide manufacturer photometric data, the analytical memo will populate here. Adjust geometry on the left and the preview updates live. When you're ready, click <strong>Download / Print PDF</strong>.</p>
+      </div>
+
+      <div class="memo" id="memo" style="display:none;">
+
+        <div class="memo-page">
+          <div class="letterhead">
+            <div>
+              <div class="firm-name">Photometric Memo</div>
+              <div class="firm-meta">Open-Source Analytical Tool · IES Lumen Method</div>
+            </div>
+            <div class="doc-id">
+              <div><span class="label">Document</span> <span class="val" id="memoNo">PE-001</span></div>
+              <div><span class="label">Generated</span> <span class="val" id="memoDate">—</span></div>
+              <div><span class="label">Status</span> <span class="val" style="color:#b45309;">Analytical Estimate</span></div>
+            </div>
+          </div>
+
+          <div class="memo-tag">Roadway Photometric Analytical Estimate · Single Configuration</div>
+          <h1 class="memo-title" id="docTitle">Photometric Estimate</h1>
+
+          <div class="scope-banner">
+            <strong>⚠ Scope &amp; Limitations</strong>
+            This document is an <strong>analytical estimate</strong> generated by an automated open-source tool. It is <strong>not</strong> stamped, <strong>not</strong> a full-site design, and <strong>not</strong> for permitting or construction. Engage a licensed Professional Engineer for any design intended for construction.
+          </div>
+
+          <div class="addressing">
+            <span class="lbl">Project</span><span class="val" id="addrProject">—</span>
+            <span class="lbl">For</span><span class="val" id="addrFor">—</span>
+            <span class="lbl">By</span><span class="val" id="addrBy">—</span>
+            <span class="lbl">Method</span><span class="val">IES Lumen Method · Point-by-point integration of manufacturer photometric file</span>
+          </div>
+
+          <section class="memo-sec">
+            <div class="sec-head"><span class="sec-num">01</span><h2 class="sec-title">Summary of analysis</h2></div>
+            <div class="body-text"><p id="summaryParagraph">—</p></div>
+          </section>
+
+          <section class="memo-sec">
+            <div class="sec-head"><span class="sec-num">02</span><h2 class="sec-title">Configuration analyzed</h2></div>
+            <div class="spec-grid" id="specGrid"></div>
+          </section>
+
+          <section class="memo-sec">
+            <div class="sec-head"><span class="sec-num">03</span><h2 class="sec-title">Computed photometric performance</h2></div>
+            <div class="result-card" id="resultCard"></div>
+          </section>
+        </div>
+
+        <div class="memo-page">
+          <div class="letterhead-slim">
+            <div class="firm-slim">Photometric Memo</div>
+            <div class="meta-slim" id="page2Meta">Page 2 of 2</div>
+          </div>
+
+          <section class="memo-sec">
+            <div class="sec-head"><span class="sec-num">04</span><h2 class="sec-title">Illuminance distribution &amp; key values</h2></div>
+            <div class="viz-card">
+              <div class="viz-head">
+                <span>Plan View — Pavement Illuminance Heatmap (fc)</span>
+                <span id="heatmapMeta">—</span>
+              </div>
+              <div class="viz-body"><canvas id="heatmap" width="900" height="280"></canvas></div>
+            </div>
+            <div class="key-strip" id="keyStrip"></div>
+          </section>
+
+          <section class="memo-sec">
+            <div class="sec-head"><span class="sec-num">05</span><h2 class="sec-title">Threshold check</h2></div>
+            <div class="verdict" id="verdict"></div>
+          </section>
+
+          <section class="memo-sec">
+            <div class="sec-head"><span class="sec-num">06</span><h2 class="sec-title">Methodology</h2></div>
+            <div class="method-text">
+              <p>Average maintained illuminance, minimum, maximum, and uniformity ratios are computed by direct point-by-point integration of the user-supplied manufacturer IES file across a regular grid spanning one full pole-to-pole repeating module of pavement. Per-point illuminance follows the inverse-square cosine law with bilinear interpolation on the candela web:</p>
+              <div class="formula">E(x,y) = Σ<sub>i</sub> [ I(γ<sub>i</sub>, C<sub>i</sub>) · cos(γ<sub>i</sub>) / d<sub>i</sub><sup>2</sup> ] · LLF</div>
+              <p>where I(γ,C) is the candela value interpolated from the IES distribution at vertical angle γ and lateral angle C; d is slant distance from the luminaire to the pavement point; and the summation runs over all luminaires within the influence zone (±2 poles per side). Photometric data is applied at full candela multiplier with TILT=NONE per IES LM-63. The grid is sampled at 40 longitudinal × 11 transverse zone-center points per module. Methodology consistent with the procedures used by DIALux and AGi32 for representative-section roadway analysis.</p>
+            </div>
+          </section>
+
+          <div class="disclaimer-paper">
+            This document was generated by an automated open-source tool and is not a stamped engineering deliverable. It is provided as an analytical estimate for screening and discussion purposes only. It does not constitute a full-site photometric design, is not a stamped construction document, and is not intended for permitting, public record filing, or jurisdiction-specific compliance certification. Site-specific factors including intersection geometry, road curvature, local-road segments, light trespass at property lines, structural pole design, and wind loading are outside the scope of this tool. The tool is provided as-is, without warranty of any kind; the authors and contributors have no liability for any decision, design, construction outcome, or other consequence arising from the use of this tool or its outputs. The user is solely responsible for verifying results and engaging a licensed Professional Engineer for any work intended for construction. ANSI/IES RP-8-25 is the current recommended practice for roadway and parking facility lighting; users should verify which standard applies to their jurisdiction and project.
+          </div>
+
+          <div class="tool-attrib">
+            Generated by Photometric Memo · Open Source · MIT License
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="disclaimer-bar" id="disclaimerBar" style="display:none;">
+  <div class="disclaimer-bar-inner">
+    <strong>⚠ Analytical estimate only</strong>
+    <div class="disclaimer-bar-text">Outputs from this tool are not stamped, not for permitting, and not a substitute for professional engineering analysis. Engage a licensed PE for any design intended for construction.</div>
+  </div>
+</div>
+
+<script>
+function parseIES(text) {
+  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  let luminaireName = '';
+  for (const ln of lines) {
+    const m = ln.match(/\[LUMINAIRE\]\s*(.+)/i) || ln.match(/\[LUMCAT\]\s*(.+)/i);
+    if (m) { luminaireName = m[1].trim(); break; }
+  }
+  let tiltIdx = lines.findIndex(l => l.trim().toUpperCase().startsWith('TILT='));
+  if (tiltIdx === -1) throw new Error('No TILT= line found');
+  const nums = lines.slice(tiltIdx + 1).join(' ').match(/-?\d+\.?\d*/g).map(Number);
+  let idx = 0;
+  const tiltLine = lines[tiltIdx].trim();
+  if (!/TILT=NONE/i.test(tiltLine)) {
+    if (/TILT=INCLUDE/i.test(tiltLine)) {
+      idx++;
+      const nTiltAngles = Math.round(nums[idx++]);
+      idx += nTiltAngles * 2;
+    }
+  }
+  const nL = nums[idx++];
+  let lumens = nums[idx++];
+  const candelaMult = nums[idx++];
+  const nV = Math.round(nums[idx++]), nH = Math.round(nums[idx++]);
+  idx += 2;
+  idx += 3;
+  idx++;
+  idx++;
+  const watts = nums[idx++];
+  const va = nums.slice(idx, idx + nV); idx += nV;
+  const ha = nums.slice(idx, idx + nH); idx += nH;
+  const cd = [];
+  for (let hi = 0; hi < nH; hi++) {
+    const p = [];
+    for (let vi = 0; vi < nV; vi++) p.push(nums[idx++] * candelaMult);
+    cd.push(p);
+  }
+  let isAbsolute = false;
+  if (lumens <= 0) {
+    isAbsolute = true;
+    let totalFlux = 0;
+    for (let hi = 0; hi < nH - 1; hi++) {
+      const h1 = ha[hi] * Math.PI / 180, h2 = ha[hi + 1] * Math.PI / 180;
+      const dH = h2 - h1;
+      for (let vi = 0; vi < nV - 1; vi++) {
+        const v1 = va[vi] * Math.PI / 180, v2 = va[vi + 1] * Math.PI / 180;
+        const avgCd = (cd[hi][vi] + cd[hi][vi + 1] + cd[hi + 1][vi] + cd[hi + 1][vi + 1]) / 4;
+        totalFlux += avgCd * (Math.cos(v1) - Math.cos(v2)) * dH;
+      }
+    }
+    const maxHa = ha[ha.length - 1];
+    if (maxHa <= 90) totalFlux *= 4;
+    else if (maxHa <= 180) totalFlux *= 2;
+    lumens = Math.round(totalFlux);
+  }
+  return {
+    name: luminaireName || 'Unnamed luminaire',
+    lumens, watts, vertAngles: va, horizAngles: ha,
+    candela: cd, numVert: nV, numHoriz: nH, isAbsolute, candelaMult
+  };
+}
+function getCandela(ies, vd, hd) {
+  vd = Math.max(0, Math.min(180, vd));
+  const maxHa = ies.horizAngles[ies.horizAngles.length - 1];
+  if (maxHa <= 90) {
+    hd = ((hd % 360) + 360) % 360;
+    if (hd > 90 && hd <= 180) hd = 180 - hd;
+    else if (hd > 180 && hd <= 270) hd = hd - 180;
+    else if (hd > 270) hd = 360 - hd;
+  } else if (maxHa <= 180) {
+    hd = ((hd % 360) + 360) % 360;
+    if (hd > 180) hd = 360 - hd;
+  }
+  const va = ies.vertAngles, ha = ies.horizAngles;
+  let vi = 0;
+  for (let i = 0; i < va.length - 1; i++) if (vd >= va[i] && vd <= va[i + 1]) { vi = i; break; }
+  if (vd >= va[va.length - 1]) vi = va.length - 2;
+  let hi = 0;
+  for (let i = 0; i < ha.length - 1; i++) if (hd >= ha[i] && hd <= ha[i + 1]) { hi = i; break; }
+  if (hd >= ha[ha.length - 1]) hi = ha.length - 2;
+  const vf = va[vi + 1] !== va[vi] ? (vd - va[vi]) / (va[vi + 1] - va[vi]) : 0;
+  const hf = ha[hi + 1] !== ha[hi] ? (hd - ha[hi]) / (ha[hi + 1] - ha[hi]) : 0;
+  const c00 = ies.candela[hi][vi], c01 = ies.candela[hi][vi + 1];
+  const c10 = ies.candela[hi + 1][vi], c11 = ies.candela[hi + 1][vi + 1];
+  return c00 * (1 - hf) * (1 - vf) + c10 * hf * (1 - vf) + c01 * (1 - hf) * vf + c11 * hf * vf;
+}
+function calcE(ies, px, py, mh, x, y, rotDeg) {
+  rotDeg = rotDeg || 0;
+  const dx = x - px, dy = y - py;
+  const d = Math.sqrt(dx * dx + dy * dy + mh * mh);
+  if (!d) return 0;
+  const hd = Math.sqrt(dx * dx + dy * dy);
+  const vertAngle = Math.atan2(hd, mh) * 180 / Math.PI;
+  let horizAngle = Math.atan2(dx, dy) * 180 / Math.PI;
+  horizAngle = ((horizAngle + rotDeg) % 360 + 360) % 360;
+  return getCandela(ies, vertAngle, horizAngle) * (mh / d) / (d * d);
+}
+function analyzeSpacing(ies, mH, sp, rW, off, llf, arr) {
+  const nX = 40, nY = 11, vals = [];
+  const stepX = sp / nX, stepY = rW / nY;
+  for (let xi = 0; xi < nX; xi++) {
+    const x = stepX / 2 + xi * stepX;
+    for (let yi = 0; yi < nY; yi++) {
+      const y = stepY / 2 + yi * stepY;
+      let E = 0;
+      for (let p = -1; p <= 2; p++) E += calcE(ies, p * sp, -off, mH, x, y, 0);
+      if (arr === 'staggered') {
+        for (let p = -1; p <= 2; p++) E += calcE(ies, p * sp + sp / 2, rW + off, mH, x, y, 180);
+      }
+      vals.push(E * llf);
+    }
+  }
+  const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  return {
+    avg, min: mn, max: mx,
+    avgMin: mn > 0 ? avg / mn : Infinity,
+    maxMin: mn > 0 ? mx / mn : Infinity,
+    grid: vals, numX: nX, numY: nY, sp, rW
+  };
+}
+
+function acknowledge() {
+  document.getElementById('gate').classList.add('hidden');
+  document.body.classList.add('preview-mode');
+  document.getElementById('disclaimerBar').style.display = 'block';
+  try { sessionStorage.setItem('photoMemoAck', '1'); } catch (e) {}
+}
+document.getElementById('ackBox').addEventListener('change', e => {
+  document.getElementById('gateBtn').disabled = !e.target.checked;
+});
+try {
+  if (sessionStorage.getItem('photoMemoAck') === '1') {
+    document.getElementById('gate').classList.add('hidden');
+    document.body.classList.add('preview-mode');
+    document.getElementById('disclaimerBar').style.display = 'block';
+  }
+} catch (e) {}
+
+let iesData = null;
+
+function renderHeatmap(result) {
+  const canvas = document.getElementById('heatmap');
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  const { grid, numX, numY, max } = result;
+  const cW = w / numX, cH = h / numY;
+  const scale = max * 0.85;
+  for (let xi = 0; xi < numX; xi++) {
+    for (let yi = 0; yi < numY; yi++) {
+      const v = grid[xi * numY + yi];
+      const n = Math.min(v / scale, 1);
+      let r, g, b;
+      if (n < 0.25) { const t = n / 0.25; r = 5; g = 10 + t * 60 | 0; b = 30 + t * 120 | 0; }
+      else if (n < 0.5) { const t = (n - 0.25) / 0.25; r = t * 20 | 0; g = 70 + t * 150 | 0; b = 150 + t * 50 | 0; }
+      else if (n < 0.75) { const t = (n - 0.5) / 0.25; r = 20 + t * 220 | 0; g = 220 - t * 30 | 0; b = 200 - t * 160 | 0; }
+      else { const t = (n - 0.75) / 0.25; r = 240 + t * 15 | 0; g = 190 - t * 90 | 0; b = 40 - t * 30 | 0; }
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(xi * cW, (numY - 1 - yi) * cH, cW + 1, cH + 1);
+    }
+  }
+  ctx.font = 'bold 10px JetBrains Mono';
+  ctx.textAlign = 'center';
+  const mid = Math.floor(numX / 2);
+  for (const xi of [2, mid, numX - 3]) {
+    for (const yi of [1, Math.floor(numY / 2), numY - 2]) {
+      const v = grid[xi * numY + yi];
+      const x = xi * cW + cW / 2, y = (numY - 1 - yi) * cH + cH / 2 + 4;
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(x - 18, y - 10, 36, 14);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(v.toFixed(2), x, y);
+    }
+  }
+  ctx.fillStyle = '#fbbf24';
+  ctx.strokeStyle = '#1a1a1a';
+  ctx.lineWidth = 2;
+  for (const xi of [0, numX - 1]) {
+    const x = xi * cW;
+    ctx.beginPath();
+    ctx.arc(x, h - 4, 5, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
+  ctx.font = 'bold 10px JetBrains Mono';
+  ctx.textAlign = 'left';
+  ctx.fillText('← Pole 1', 6, 14);
+  ctx.textAlign = 'right';
+  ctx.fillText('Pole 2 →', w - 6, 14);
+  ctx.textAlign = 'center';
+  ctx.fillText('Midpoint', w / 2, 14);
+  const bX = 8, bY = h - 22, bW = 120, bH = 6;
+  for (let i = 0; i < bW; i++) {
+    const n = i / bW;
+    let r, g, b;
+    if (n < 0.25) { const t = n / 0.25; r = 5; g = 10 + t * 60 | 0; b = 30 + t * 120 | 0; }
+    else if (n < 0.5) { const t = (n - 0.25) / 0.25; r = t * 20 | 0; g = 70 + t * 150 | 0; b = 150 + t * 50 | 0; }
+    else if (n < 0.75) { const t = (n - 0.5) / 0.25; r = 20 + t * 220 | 0; g = 220 - t * 30 | 0; b = 200 - t * 160 | 0; }
+    else { const t = (n - 0.75) / 0.25; r = 240 + t * 15 | 0; g = 190 - t * 90 | 0; b = 40 - t * 30 | 0; }
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(bX + i, bY, 1, bH);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
+  ctx.font = '9px JetBrains Mono';
+  ctx.textAlign = 'left';
+  ctx.fillText('0', bX, bY - 3);
+  ctx.textAlign = 'right';
+  ctx.fillText(scale.toFixed(1) + '+ fc', bX + bW, bY - 3);
+}
+
+function renderKeyStrip(result, sp, mh, tFc, tUni) {
+  const eavgPass = result.avg >= tFc;
+  const uniPass = result.avgMin <= tUni;
+  document.getElementById('keyStrip').innerHTML = `
+    <div class="key-cell"><div class="key-label">E<sub>avg</sub> Maintained</div><div class="key-val ${eavgPass ? 'pass' : 'fail'}">${result.avg.toFixed(2)}<span class="u">fc</span></div></div>
+    <div class="key-cell"><div class="key-label">E<sub>min</sub></div><div class="key-val">${result.min.toFixed(2)}<span class="u">fc</span></div></div>
+    <div class="key-cell"><div class="key-label">E<sub>max</sub></div><div class="key-val">${result.max.toFixed(2)}<span class="u">fc</span></div></div>
+    <div class="key-cell"><div class="key-label">Avg / Min</div><div class="key-val ${uniPass ? 'pass' : 'fail'}">${result.avgMin.toFixed(1)}:1</div></div>
+    <div class="key-cell"><div class="key-label">Max / Min</div><div class="key-val">${result.maxMin.toFixed(1)}:1</div></div>
+    <div class="key-cell"><div class="key-label">S / MH</div><div class="key-val">${(sp/mh).toFixed(2)}</div></div>
+  `;
+}
+
+function buildMemo() {
+  if (!iesData) return;
+  const sp = +document.getElementById('spacing').value;
+  const mh = +document.getElementById('mh').value;
+  const rW = +document.getElementById('roadW').value;
+  const off = +document.getElementById('offset').value;
+  const llf = +document.getElementById('llf').value;
+  const arr = document.getElementById('arr').value;
+  const tFc = +document.getElementById('tFc').value;
+  const tUni = +document.getElementById('tUni').value;
+  const project = document.getElementById('project').value || '—';
+  const recipient = document.getElementById('recipient').value || '—';
+  const preparer = document.getElementById('preparer').value || '—';
+  const rwNote = document.getElementById('roadWNote').value.trim();
+
+  const result = analyzeSpacing(iesData, mh, sp, rW, off, llf, arr);
+  const efficacy = iesData.watts > 0 ? (iesData.lumens / iesData.watts).toFixed(0) : '—';
+  const smh = (sp / mh).toFixed(2);
+  const arrText = arr === 'staggered' ? 'Staggered, both sides' : 'Single side';
+
+  const d = new Date();
+  const dateStr = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const memoNo = 'PE-' + d.getFullYear().toString().slice(-2) + (d.getMonth() + 1).toString().padStart(2, '0') + d.getDate().toString().padStart(2, '0') + '-' + Math.floor(Math.random() * 900 + 100);
+  document.getElementById('memoDate').textContent = dateStr;
+  document.getElementById('memoNo').textContent = memoNo;
+
+  const wattStr = iesData.watts ? Math.round(iesData.watts) + 'W ' : '';
+  document.getElementById('docTitle').textContent = `${wattStr}Roadway Luminaire at ${sp} ft Pole Spacing`;
+  document.getElementById('addrProject').textContent = project;
+  document.getElementById('addrFor').textContent = recipient;
+  document.getElementById('addrBy').textContent = preparer;
+
+  const eavgPass = result.avg >= tFc;
+  const uniPass = result.avgMin <= tUni;
+  const passAll = eavgPass && uniPass;
+
+  document.getElementById('summaryParagraph').innerHTML =
+    `This document presents an analytical estimate of the <strong>${iesData.name}</strong> ` +
+    `(${iesData.lumens.toLocaleString()} lm${iesData.watts ? ', ' + iesData.watts.toFixed(1) + 'W, ' + efficacy + ' lm/W' : ''}) ` +
+    `at <strong>${sp} ft pole-to-pole spacing</strong>, <strong>${mh} ft mounting height</strong>, in a <strong>${arrText.toLowerCase()}</strong> arrangement on a ${rW} ft pavement section ` +
+    `with ${off} ft pole offset. Calculations are performed by point-by-point integration of the user-supplied IES file with a maintained light loss factor of LLF = ${llf}. ` +
+    `Results are screened against user-specified thresholds of E<sub>avg</sub> ≥ ${tFc} fc and Avg/Min uniformity ≤ ${tUni}:1. ` +
+    `<strong>${passAll ? 'The representative section meets the user-specified thresholds.' : 'The representative section does not meet one or more user-specified thresholds — see Section 05.'}</strong>`;
+
+  document.getElementById('specGrid').innerHTML = `
+    <div class="spec-cell"><div class="spec-label">Luminaire</div><div class="spec-val">${iesData.name}</div></div>
+    <div class="spec-cell"><div class="spec-label">Lumens / Watts</div><div class="spec-val">${iesData.lumens.toLocaleString()}<span class="u">lm</span> / ${iesData.watts ? iesData.watts.toFixed(1) : '—'}<span class="u">W</span></div></div>
+    <div class="spec-cell"><div class="spec-label">Efficacy</div><div class="spec-val">${efficacy}<span class="u">lm/W</span></div></div>
+    <div class="spec-cell"><div class="spec-label">Photometry</div><div class="spec-val">${iesData.isAbsolute ? 'Absolute' : 'Relative'}</div></div>
+    <div class="spec-cell"><div class="spec-label">Pole Spacing</div><div class="spec-val">${sp}<span class="u">ft</span></div></div>
+    <div class="spec-cell"><div class="spec-label">Mounting Ht</div><div class="spec-val">${mh}<span class="u">ft</span></div></div>
+    <div class="spec-cell"><div class="spec-label">S / MH Ratio</div><div class="spec-val">${smh}</div></div>
+    <div class="spec-cell"><div class="spec-label">Arrangement</div><div class="spec-val">${arrText}</div></div>
+    <div class="spec-cell"><div class="spec-label">Road Width</div><div class="spec-val">${rW}<span class="u">ft</span></div>${rwNote ? `<div class="spec-note">${rwNote}</div>` : ''}</div>
+    <div class="spec-cell"><div class="spec-label">Pole Offset</div><div class="spec-val">${off}<span class="u">ft</span></div></div>
+    <div class="spec-cell"><div class="spec-label">Light Loss Factor</div><div class="spec-val">${llf}</div></div>
+    <div class="spec-cell"><div class="spec-label">User Thresholds</div><div class="spec-val">E<sub>avg</sub>≥${tFc}, ${tUni}:1</div></div>
+  `;
+
+  document.getElementById('resultCard').innerHTML = `
+    <div class="result-row"><div class="metric"><strong>Average maintained illuminance</strong> · E<sub>avg</sub></div><div class="value">${result.avg.toFixed(2)}<span class="u">fc</span></div><div class="badge ${eavgPass ? 'pass' : 'fail'}">${eavgPass ? 'PASS' : 'FAIL'}</div></div>
+    <div class="result-row"><div class="metric">vs. user-specified target</div><div class="value" style="color:var(--ink-faint);">≥ ${tFc} fc</div><div></div></div>
+    <div class="result-row"><div class="metric"><strong>Minimum illuminance</strong> · E<sub>min</sub></div><div class="value">${result.min.toFixed(2)}<span class="u">fc</span></div><div></div></div>
+    <div class="result-row"><div class="metric"><strong>Maximum illuminance</strong> · E<sub>max</sub></div><div class="value">${result.max.toFixed(2)}<span class="u">fc</span></div><div></div></div>
+    <div class="result-row"><div class="metric"><strong>Avg / Min uniformity</strong></div><div class="value">${result.avgMin.toFixed(1)}:1</div><div class="badge ${uniPass ? 'pass' : 'fail'}">${uniPass ? 'PASS' : 'FAIL'}</div></div>
+    <div class="result-row"><div class="metric">vs. user-specified ratio</div><div class="value" style="color:var(--ink-faint);">≤ ${tUni}:1</div><div></div></div>
+    <div class="result-row"><div class="metric"><strong>Max / Min ratio</strong></div><div class="value">${result.maxMin.toFixed(1)}:1</div><div></div></div>
+  `;
+
+  renderHeatmap(result);
+  renderKeyStrip(result, sp, mh, tFc, tUni);
+
+  document.getElementById('page2Meta').textContent = `${project} · ${iesData.name} at ${sp} ft · Page 2 of 2`;
+  document.getElementById('heatmapMeta').textContent = `${iesData.name} · ${iesData.lumens.toLocaleString()} lm · ${sp} ft · ${mh} ft MH · ${arrText.toLowerCase()}`;
+
+  let vClass, vTitle, vBody;
+  if (passAll) {
+    vClass = 'pass';
+    vTitle = 'Representative section meets user-specified thresholds';
+    vBody = `On the representative pavement section analyzed, the configuration produces E<sub>avg</sub> = ${result.avg.toFixed(2)} fc against the ${tFc} fc target, and Avg/Min uniformity of ${result.avgMin.toFixed(1)}:1 against the ${tUni}:1 limit. The S/MH ratio of ${smh} is within the practical range for this luminaire's optical distribution. <strong>This is an analytical estimate only.</strong> Site-specific factors including intersection geometry, road curvature, local-road segments, and AHJ-specific criteria are outside the scope of this tool. Any configuration adopted for construction shall be evaluated under a stamped photometric design report.`;
+  } else {
+    vClass = 'fail';
+    vTitle = 'Representative section does not meet one or more user-specified thresholds';
+    const issues = [];
+    if (!eavgPass) issues.push(`E<sub>avg</sub> of ${result.avg.toFixed(2)} fc falls below the ${tFc} fc target`);
+    if (!uniPass) issues.push(`Avg/Min uniformity of ${result.avgMin.toFixed(1)}:1 exceeds the ${tUni}:1 limit`);
+    vBody = `On the representative pavement section analyzed, ${issues.join(' and ')}. The configuration as specified does not meet the user-specified thresholds for the representative geometry. Reduction of pole spacing, revision of mounting height, or alternative luminaire selection would be required to bring the representative section within the specified thresholds. Full-site evaluation under a stamped photometric design report would be required regardless of representative-section result if the configuration is pursued for construction.`;
+  }
+  document.getElementById('verdict').className = 'verdict ' + vClass;
+  document.getElementById('verdict').innerHTML = `<h3>${vTitle}</h3><p>${vBody}</p>`;
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('memo').style.display = 'block';
+  document.getElementById('printBtn').disabled = false;
+  document.getElementById('inputsStatus').textContent = 'Live';
+  document.getElementById('inputsStatus').style.color = 'var(--pass)';
+  document.getElementById('previewMeta').textContent = `${iesData.name} · ${sp} ft spacing · ${result.avg.toFixed(2)} fc avg`;
+}
+
+document.getElementById('iesInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      iesData = parseIES(ev.target.result);
+      const drop = document.getElementById('iesDrop');
+      drop.classList.add('loaded');
+      document.getElementById('iesDropContent').className = 'ies-info';
+      document.getElementById('iesDropContent').innerHTML = `
+        <div class="name">✓ ${iesData.name}</div>
+        <div class="stat">Lumens: <span>${iesData.lumens.toLocaleString()}${iesData.isAbsolute ? ' (abs)' : ''}</span> · Watts: <span>${iesData.watts ? iesData.watts.toFixed(1) + 'W' : '—'}</span></div>
+        <div class="stat">Grid: <span>${iesData.numHoriz}×${iesData.numVert}</span> · click to replace</div>
+      `;
+      buildMemo();
+    } catch (err) {
+      alert('IES parse error: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+});
+
+document.querySelectorAll('.inputs-panel input, .inputs-panel select').forEach(el => {
+  if (el.id !== 'iesInput') el.addEventListener('input', buildMemo);
+});
+
+function resetAll() {
+  if (!confirm('Reset all inputs to defaults?')) return;
+  document.getElementById('spacing').value = 150;
+  document.getElementById('mh').value = 25;
+  document.getElementById('roadW').value = 24;
+  document.getElementById('roadWNote').value = '';
+  document.getElementById('offset').value = 2;
+  document.getElementById('arr').value = 'staggered';
+  document.getElementById('llf').value = 0.80;
+  document.getElementById('tFc').value = 0.6;
+  document.getElementById('tUni').value = 4.0;
+  document.getElementById('project').value = '';
+  document.getElementById('recipient').value = '';
+  document.getElementById('preparer').value = '';
+  if (iesData) buildMemo();
+}
+</script>
+
+</body>
+</html>
