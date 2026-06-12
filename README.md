@@ -7,7 +7,7 @@
 Built by [Oasis Engineering LLC](https://oasisengineering.com) • Live at [windcalculations.com](https://windcalculations.com)
 
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Version](https://img.shields.io/badge/version-2.0-blue)
+![Version](https://img.shields.io/badge/version-2.1-blue)
 
 ---
 
@@ -21,7 +21,7 @@ E = (I × cos θ) / d²
 
 Where `I` is the interpolated candela intensity from the IES file at the vertical and horizontal angles to the calculation point, `θ` is the angle of incidence, and `d` is the distance from luminaire to point.
 
-For each spacing interval, the tool evaluates a grid of calculation points across the roadway between two consecutive poles (including contributions from adjacent poles) and reports:
+For each spacing interval, the tool evaluates a 40 × 11 zone-center grid across the roadway between two consecutive poles — including contributions from an adaptive window of neighboring poles (minimum ±3 per side, extending until poles sit at least 12 mounting heights beyond the module) — and reports:
 
 - **Eavg** — Average horizontal illuminance (footcandles)
 - **Emin** — Minimum illuminance on the grid
@@ -32,20 +32,25 @@ For each spacing interval, the tool evaluates a grid of calculation points acros
 
 ## Features
 
-- **IES LM-63-2002 Parser** — Full support for Type C photometry with:
-  - `TILT=NONE` and `TILT=INCLUDE` handling (skips tilt data block correctly)
-  - Candela multiplier application
-  - Absolute photometry detection (lumens ≤ 0) with candela web integration fallback
-  - Bilateral symmetry (0°–180°) and quadrant symmetry (0°–90°) mirroring
-- **IES RP-8 Road Classification** — Dropdown auto-populates target illuminance and uniformity based on road type, pedestrian activity level, and speed:
+- **IES LM-63 Parser** — Type C photometry with:
+  - `TILT=NONE` and `TILT=INCLUDE` handling (skips tilt data block correctly); external tilt files (`TILT=<filename>`) rejected with a clear error instead of silently misparsing
+  - Scientific-notation and `.5`-style numbers
+  - Candela multiplier application; number-of-lamps applied to display lumens
+  - Absolute photometry detection (lumens ≤ 0) with exact cos-difference candela web integration
+  - Bilateral symmetry (0°–180°), quadrant symmetry (0°–90°), and axially symmetric (single horizontal plane) files
+  - Truncated-file detection; non-Type-C, TILT=INCLUDE, and ballast-factor ≠ 1.0 conditions surfaced as warnings instead of being silently ignored
+- **IES RP-8 Road Classification** — Dropdown auto-populates target illuminance and uniformity based on road type, pedestrian activity level, and speed (verify values against the RP-8 edition governing your project):
   - Local / Residential (15–25 mph)
   - Collector (30–35 mph)
   - Minor Arterial (35–45 mph)
   - Major Arterial / Highway (45–55 mph)
   - Manual override mode
 - **Pole Arrangements** — Single-side and staggered (opposite-side with 180° fixture rotation)
-- **Light Loss Factor** — Adjustable 0.60–1.00 for maintenance/dirt depreciation
-- **Illuminance Heatmap** — Color-mapped canvas showing fc distribution between two poles
+- **Light Loss Factor** — Adjustable 0.60–1.00; defaults to 0.85 since RP-8 targets are maintained values
+- **Demo IES File** — One-click synthetic LED cobra-head file for trying the tool without manufacturer data
+- **Live Recalculation** — After the first run, results update automatically (debounced) as inputs change
+- **CSV Export** — Download the full spacing table with a header documenting the inputs
+- **Illuminance Heatmap** — Color-mapped canvas showing fc distribution between two poles, with pole markers
 - **Side Profile Visualization** — SVG light cone diagram with dimension callouts and animated luminaire indicators
 - **Poles per Mile** — Cost-relevant metric in every results row
 
@@ -74,8 +79,8 @@ Upload an IES file → Set parameters → Get results:
 
 1. Download `ies-spacing-calculator.html`
 2. Open it in any modern browser
-3. Upload a `.ies` file (IESNA LM-63-2002 format)
-4. Adjust parameters and click **Calculate**
+3. Upload a `.ies` file (IESNA LM-63 format) — or click **Try with demo IES file**
+4. Adjust parameters and click **Calculate** (after the first run, results update live)
 
 That's it. No server, no build step, no dependencies.
 
@@ -109,6 +114,14 @@ Far-side poles in staggered configuration are rotated 180° so the fixture's "st
 
 Calculation points are placed at **zone centers** (half-step offset), not on boundaries. This prevents unrealistic Emax values at theoretical coordinates directly under the pole and aligns with IES RP-8 standard calculation methodology.
 
+### Pole Influence Window
+
+Each grid point sums contributions from an adaptive window of poles: at least 3 modules beyond each end of the analyzed module, extending further (12 × mounting height) when spacing is tight relative to pole height. Convergence-tested against very wide windows — residual error is below 0.1% for typical roadway geometry. (v2.0 used a fixed ±1-module window, which underestimated Eavg by up to ~1.8% and Emin by ~2.3% at tight spacings.)
+
+### Interpolation Bounds
+
+Bilinear interpolation fractions on the candela web are clamped to [0, 1], and vertical angles are clamped to the file's actual angular range — the calculator never extrapolates past the photometric data.
+
 ### Uniformity Convention
 
 Uniformity is expressed as **Avg/Min** (e.g., 4.0:1), the North American IES RP-8 convention, rather than the European CIE Uo decimal format (Emin/Eavg = 0.25). Lower ratios indicate better uniformity.
@@ -119,6 +132,7 @@ Uniformity is expressed as **Avg/Min** (e.g., 4.0:1), the North American IES RP-
 |---|---|---|
 | Point-source approximation | Negligible at ≥15 ft mounting heights | Not suitable for bollards (<5 ft) |
 | No luminaire tilt angle input | May underestimate throw for tilted fixtures | Use fixture IES that includes tilt in the photometric test |
+| TILT=INCLUDE multipliers not applied | Candela web read as-is | Use a TILT=NONE file for the installed orientation |
 | No reflected light / interreflection | Conservative (underestimates actual illuminance) | Acceptable for roadway — low reflectance surfaces |
 | Single road cross-section | No medians, curbs, or sidewalk zones | Use DIALux for complex cross-sections |
 | No luminance calculations | Only illuminance (fc/lux) | RP-8 luminance method requires pavement classification |
@@ -149,6 +163,26 @@ ies-spacing-calculator/
 ```
 
 ## Changelog
+
+### v2.1 (2026-06-12)
+**Accuracy fixes (engine validated with a 30-test Node suite):**
+- **Adaptive pole influence window** — v2.0 summed only ±1 module of neighboring poles (the docs claimed ±2), underestimating Eavg by up to ~1.8% and Emin by ~2.3% at tight spacings. The window now extends at least ±3 modules and grows with mounting height until far poles contribute negligibly (<0.1% residual error vs. a near-infinite row).
+- **Interpolation clamping** — bilinear fractions clamped to [0, 1]; no extrapolation past the candela web or the file's vertical angle range.
+- **Axially symmetric files** — IES files with a single horizontal plane (nH = 1) now parse and calculate correctly instead of failing.
+- **Absolute photometry integration** — switched to the exact cos-difference form (was midpoint sin approximation).
+- **Number-of-lamps** applied to display lumens for relative photometry; **scientific-notation** and `.5`-style numbers parsed; **truncated files** detected with a clear error; **external tilt files** (`TILT=<filename>`) rejected explicitly instead of silently misparsing.
+- **Parser warnings surfaced** — non-Type-C photometry, TILT=INCLUDE multipliers not applied, ballast factor ≠ 1.0.
+
+**UX and quality:**
+- Demo IES file loader (synthetic LED cobra head — try the tool with zero setup)
+- CSV export of the full spacing table with input documentation
+- Live debounced recalculation after the first run
+- LLF defaults to 0.85 and is labeled as a maintained-value factor (was 1.00, which silently compared initial values against RP-8 maintained targets)
+- Editing the uniformity slider now flips the road class to Custom (matching the Eavg slider behavior)
+- User-controlled text (luminaire name) HTML-escaped before rendering
+- Keyboard accessibility for upload zone and arrangement toggle; `prefers-reduced-motion` respected; drag-over highlight properly cleared
+- Clearer messaging when no compliant spacing exists in the searched range
+- Note added to verify RP-8 target values against the edition governing the project
 
 ### v2.0 (2026-03-30)
 **Critical fixes from engineering peer review:**

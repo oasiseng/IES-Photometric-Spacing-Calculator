@@ -62,6 +62,11 @@ body::before {
 
 .app { position: relative; z-index: 1; }
 
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
 .header {
   padding: 20px 32px;
   border-bottom: 1px solid var(--border);
@@ -116,7 +121,7 @@ body::before {
   padding: 20px 16px; text-align: center; cursor: pointer;
   transition: all 0.3s ease; margin-bottom: 4px;
 }
-.upload-zone:hover { border-color: var(--accent); background: var(--accent-subtle); }
+.upload-zone:hover, .upload-zone.drag-over { border-color: var(--accent); background: var(--accent-subtle); }
 .upload-zone.has-file { border-color: var(--pass); border-style: solid; background: var(--pass-bg); }
 .upload-icon { font-size: 28px; margin-bottom: 6px; }
 .upload-zone h3 { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
@@ -127,10 +132,24 @@ body::before {
 .file-info .file-name {
   font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--pass);
   font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 5px;
+  word-break: break-all;
 }
 .file-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 .file-stat { font-size: 10px; color: var(--text-dim); }
 .file-stat span { color: var(--text); font-weight: 600; }
+.file-warnings { margin-top: 8px; display: grid; gap: 4px; }
+.file-warning {
+  font-size: 10px; color: var(--warn); background: var(--warn-bg);
+  border: 1px solid var(--warn-border); border-radius: 5px; padding: 5px 8px; line-height: 1.4;
+}
+
+.demo-link {
+  display: block; width: 100%; margin-top: 8px; text-align: center;
+  background: transparent; border: 1px solid var(--border); border-radius: 7px;
+  color: var(--text-dim); font-family: 'DM Sans', sans-serif; font-size: 11px;
+  padding: 7px; cursor: pointer; transition: all 0.2s;
+}
+.demo-link:hover { border-color: var(--accent); color: var(--accent); }
 
 .road-class-select {
   width: 100%; background: var(--surface2); border: 1px solid var(--border);
@@ -149,6 +168,7 @@ body::before {
   padding: 3px 8px; border-radius: 4px; margin-top: 6px;
   font-weight: 600; border: 1px solid var(--blue-border);
 }
+.rp8-note { font-size: 9.5px; color: var(--text-muted); line-height: 1.4; margin-top: 6px; }
 
 .control-group { margin-bottom: 12px; }
 .control-group label { display: block; font-size: 11px; font-weight: 600; color: var(--text); margin-bottom: 5px; }
@@ -186,6 +206,7 @@ body::before {
   background: var(--surface2); border: 1px solid var(--border);
   border-radius: 7px; padding: 8px; cursor: pointer; text-align: center;
   transition: all 0.2s; color: var(--text-dim); font-size: 11px; font-weight: 500;
+  font-family: 'DM Sans', sans-serif;
 }
 .arr-btn.active { background: var(--blue-glow); border-color: var(--blue); color: var(--text); }
 .arr-btn .arr-icon { font-size: 16px; margin-bottom: 2px; }
@@ -199,6 +220,15 @@ body::before {
 }
 .calc-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 30px var(--accent-glow); }
 .calc-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+.live-note {
+  font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 8px;
+  display: none;
+}
+.live-note.visible { display: block; }
+.live-note .dot {
+  display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--pass); margin-right: 4px; vertical-align: 1px;
+}
 
 /* CONTENT */
 .content { padding: 20px 28px; overflow-y: auto; max-height: calc(100vh - 72px); }
@@ -249,7 +279,17 @@ body::before {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 10px; overflow: hidden; margin-bottom: 16px;
 }
-.results-table-wrap h3 { font-size: 12px; font-weight: 600; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+.results-table-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+}
+.results-table-head h3 { font-size: 12px; font-weight: 600; }
+.csv-btn {
+  background: transparent; border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text-dim); font-family: 'DM Sans', sans-serif; font-size: 11px;
+  padding: 5px 12px; cursor: pointer; transition: all 0.2s;
+}
+.csv-btn:hover { border-color: var(--accent); color: var(--accent); }
 .results-table { width: 100%; border-collapse: collapse; }
 .results-table th {
   font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em;
@@ -341,7 +381,7 @@ body::before {
       </div>
     </div>
     <div class="header-right">
-      <div class="header-badge">v2.0 — IES RP-8</div>
+      <div class="header-badge">v2.1 — IES RP-8</div>
       <a href="https://windcalculations.com" class="header-link">Wind Calcs</a>
       <a href="https://oasisengineering.com" class="header-link">Oasis Engineering</a>
     </div>
@@ -352,22 +392,24 @@ body::before {
       <div class="sidebar-scroll">
 
         <div class="section-label">IES File</div>
-        <div class="upload-zone" id="uploadZone">
+        <div class="upload-zone" id="uploadZone" role="button" tabindex="0" aria-label="Upload IES photometric file">
           <input type="file" id="iesInput" accept=".ies" style="display:none">
           <div class="upload-prompt">
             <div class="upload-icon">📁</div>
             <h3>Upload IES File</h3>
-            <p>Drag & drop or click to browse<br>.ies (IESNA LM-63-2002)</p>
+            <p>Drag &amp; drop or click to browse<br>.ies (IESNA LM-63-2002)</p>
           </div>
           <div class="file-info">
             <div class="file-name" id="fileName">✓ <span></span></div>
             <div class="file-stats" id="fileStats"></div>
+            <div class="file-warnings" id="fileWarnings"></div>
           </div>
         </div>
+        <button class="demo-link" id="demoBtn" type="button">No file handy? Load a synthetic demo distribution</button>
 
         <div class="section-label">Road Classification (IES RP-8)</div>
         <div class="control-group">
-          <label>Road Type & Speed</label>
+          <label for="roadClass">Road Type &amp; Speed</label>
           <select class="road-class-select" id="roadClass" onchange="updateRoadClass()">
             <option value="custom" data-fc="0.7" data-uni="4.0" data-speed="—">Custom / Manual</option>
             <optgroup label="Local / Residential">
@@ -394,12 +436,13 @@ body::before {
           <div class="auto-target-badge" id="autoTargetBadge">
             RP-8 → Target: 0.6 fc | Max Avg/Min: 4.0:1 | 30-35 mph
           </div>
+          <div class="rp8-note">Representative illuminance-method targets. Verify against the RP-8 edition governing your project and AHJ.</div>
         </div>
 
         <div class="section-label">Parameters</div>
 
         <div class="control-group">
-          <label>Mounting Height <small>(ft)</small></label>
+          <label for="mountHeight">Mounting Height <small>(ft)</small></label>
           <div class="slider-row">
             <input type="range" id="mountHeight" min="15" max="45" value="25" step="1">
             <div class="slider-value" id="mountHeightVal">25 ft</div>
@@ -407,7 +450,7 @@ body::before {
         </div>
 
         <div class="control-group">
-          <label>Target Eavg <small>(fc) — override RP-8 default</small></label>
+          <label for="targetFc">Target Eavg <small>(fc) — override RP-8 default</small></label>
           <div class="slider-row">
             <input type="range" id="targetFc" min="0.2" max="3.0" value="0.6" step="0.1">
             <div class="slider-value" id="targetFcVal">0.6 fc</div>
@@ -415,7 +458,7 @@ body::before {
         </div>
 
         <div class="control-group">
-          <label>Max Avg/Min Uniformity Ratio</label>
+          <label for="targetUni">Max Avg/Min Uniformity Ratio</label>
           <div class="slider-row">
             <input type="range" id="targetUni" min="2.0" max="10.0" value="4.0" step="0.5">
             <div class="slider-value" id="targetUniVal">4.0:1</div>
@@ -425,12 +468,12 @@ body::before {
         <div class="control-group">
           <div class="input-row">
             <div class="input-field">
-              <label>Road Width</label>
+              <label for="roadWidth">Road Width</label>
               <input type="number" id="roadWidth" value="24" min="10" max="80">
               <span class="unit">ft</span>
             </div>
             <div class="input-field">
-              <label>Pole Offset</label>
+              <label for="poleOffset">Pole Offset</label>
               <input type="number" id="poleOffset" value="2" min="0" max="20">
               <span class="unit">ft</span>
             </div>
@@ -440,12 +483,12 @@ body::before {
         <div class="control-group">
           <div class="input-row">
             <div class="input-field">
-              <label>Min Spacing</label>
+              <label for="minSpacing">Min Spacing</label>
               <input type="number" id="minSpacing" value="60" min="30" max="300">
               <span class="unit">ft</span>
             </div>
             <div class="input-field">
-              <label>Max Spacing</label>
+              <label for="maxSpacing">Max Spacing</label>
               <input type="number" id="maxSpacing" value="220" min="60" max="500">
               <span class="unit">ft</span>
             </div>
@@ -453,27 +496,28 @@ body::before {
         </div>
 
         <div class="section-label">Arrangement</div>
-        <div class="arrangement-toggle">
-          <div class="arr-btn active" data-arr="single" onclick="setArrangement('single')">
+        <div class="arrangement-toggle" role="radiogroup" aria-label="Pole arrangement">
+          <button type="button" class="arr-btn active" data-arr="single" onclick="setArrangement('single')" role="radio" aria-checked="true">
             <div class="arr-icon">│─ ─ ─│</div>
             Single Side
-          </div>
-          <div class="arr-btn" data-arr="staggered" onclick="setArrangement('staggered')">
+          </button>
+          <button type="button" class="arr-btn" data-arr="staggered" onclick="setArrangement('staggered')" role="radio" aria-checked="false">
             <div class="arr-icon">│─ ┼ ─│</div>
             Staggered
-          </div>
+          </button>
         </div>
 
         <div class="control-group" style="margin-top: 8px;">
-          <label>Light Loss Factor <small>(maintenance/dirt)</small></label>
+          <label for="llf">Light Loss Factor <small>(maintained values — dirt/depreciation)</small></label>
           <div class="slider-row">
-            <input type="range" id="llf" min="0.60" max="1.00" value="1.00" step="0.01">
-            <div class="slider-value" id="llfVal">1.00</div>
+            <input type="range" id="llf" min="0.60" max="1.00" value="0.85" step="0.01">
+            <div class="slider-value" id="llfVal">0.85</div>
           </div>
         </div>
 
       </div>
-      <button class="calc-btn" id="calcBtn" disabled onclick="runCalculation()">Upload IES File to Begin</button>
+      <button class="calc-btn" id="calcBtn" disabled onclick="runCalculation(false)">Upload IES File to Begin</button>
+      <div class="live-note" id="liveNote"><span class="dot"></span>Live — results update as you change inputs</div>
     </aside>
 
     <div class="content">
@@ -508,11 +552,14 @@ body::before {
             <h4>🌪️ Need Wind Load Calculations for These Poles?</h4>
             <p>Every light pole requires ASCE 7 wind loading analysis for permit approval. We calculate effective projected area (EPA), base reactions, and foundation design — all 50 states.</p>
           </div>
-          <a href="https://windcalculations.com" class="cta-button" target="_blank">Get Wind Calcs →</a>
+          <a href="https://windcalculations.com" class="cta-button" target="_blank" rel="noopener">Get Wind Calcs →</a>
         </div>
 
         <div class="results-table-wrap">
-          <h3>📊 Spacing Analysis — All Intervals</h3>
+          <div class="results-table-head">
+            <h3>📊 Spacing Analysis — All Intervals</h3>
+            <button class="csv-btn" type="button" onclick="exportCSV()">Download CSV</button>
+          </div>
           <table class="results-table">
             <thead>
               <tr>
@@ -531,19 +578,19 @@ body::before {
         </div>
 
         <div class="cta-services">
-          <a href="https://windcalculations.com" class="cta-service-card" target="_blank">
+          <a href="https://windcalculations.com" class="cta-service-card" target="_blank" rel="noopener">
             <span class="arrow">→</span>
             <div class="svc-icon">💨</div>
             <h5>Wind Pressure Calculations</h5>
-            <p>ASCE 7-22 C&C and MWFRS wind loads for structures, signs, and equipment. All 50 states.</p>
+            <p>ASCE 7-22 C&amp;C and MWFRS wind loads for structures, signs, and equipment. All 50 states.</p>
           </a>
-          <a href="https://oasisengineering.com" class="cta-service-card" target="_blank">
+          <a href="https://oasisengineering.com" class="cta-service-card" target="_blank" rel="noopener">
             <span class="arrow">→</span>
             <div class="svc-icon">📐</div>
-            <h5>Pole EPA & Foundation Design</h5>
+            <h5>Pole EPA &amp; Foundation Design</h5>
             <p>Effective projected area analysis, base plate design, and anchor bolt calcs for light poles.</p>
           </a>
-          <a href="https://oasisengineering.com" class="cta-service-card" target="_blank">
+          <a href="https://oasisengineering.com" class="cta-service-card" target="_blank" rel="noopener">
             <span class="arrow">→</span>
             <div class="svc-icon">🏗️</div>
             <h5>Structural Engineering</h5>
@@ -553,7 +600,7 @@ body::before {
 
         <div class="calc-footer">
           <strong>Disclaimer:</strong> For preliminary analysis only. Results must be verified by a licensed professional. Oasis Engineering LLC assumes no liability for design decisions based on this tool.
-          <br>© 2026 <a href="https://oasisengineering.com" target="_blank">Oasis Engineering LLC</a> | Tampa, FL | <a href="https://windcalculations.com" target="_blank">windcalculations.com</a>
+          <br>v2.1 · © 2026 <a href="https://oasisengineering.com" target="_blank" rel="noopener">Oasis Engineering LLC</a> | Tampa, FL | <a href="https://windcalculations.com" target="_blank" rel="noopener">windcalculations.com</a>
         </div>
       </div>
     </div>
@@ -566,135 +613,185 @@ body::before {
 // ============================================================
 let iesData = null;
 let arrangement = 'single';
+let lastResults = null;
+let hasRunOnce = false;
 
 // ============================================================
-// IES PARSER v2.0
-// Fixes: TILT=INCLUDE, candela multiplier, absolute photometry,
-//        quadrant symmetry
+// SHARED PHOTOMETRIC ENGINE v2.1
+// Unit-tested against: isotropic-source ground truth (E = I/d²,
+// flux = 4πI), symmetry folding, sci-notation parsing,
+// TILT=INCLUDE skipping, nH=1 files, and pole-window convergence.
 // ============================================================
-function parseIES(text) {
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
-  let tiltIdx = -1, luminaireName = '';
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i].includes('[LUMINAIRE]')) luminaireName = lines[i].split(']').pop().trim();
-    if (lines[i].trim().startsWith('TILT=')) { tiltIdx = i; break; }
+function escapeHTML(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// Integrate a candela web over the sphere -> lumens.
+// Exact for piecewise-constant cd over each patch (cos-difference form).
+// Handles axially symmetric files (single horizontal plane).
+function integrateFlux(va, ha, cd) {
+  const D = Math.PI / 180;
+  let flux = 0;
+  if (ha.length === 1) {
+    for (let vi = 0; vi < va.length - 1; vi++) {
+      const v1 = va[vi] * D, v2 = va[vi + 1] * D;
+      const avg = (cd[0][vi] + cd[0][vi + 1]) / 2;
+      flux += avg * (Math.cos(v1) - Math.cos(v2)) * 2 * Math.PI;
+    }
+    return flux;
   }
+  for (let hi = 0; hi < ha.length - 1; hi++) {
+    const dH = (ha[hi + 1] - ha[hi]) * D;
+    for (let vi = 0; vi < va.length - 1; vi++) {
+      const v1 = va[vi] * D, v2 = va[vi + 1] * D;
+      const avg = (cd[hi][vi] + cd[hi][vi + 1] + cd[hi + 1][vi] + cd[hi + 1][vi + 1]) / 4;
+      flux += avg * (Math.cos(v1) - Math.cos(v2)) * dH;
+    }
+  }
+  const span = ha[ha.length - 1] - ha[0];
+  if (span <= 91) flux *= 4;        // quadrant symmetry (0–90)
+  else if (span <= 181) flux *= 2;  // bilateral symmetry (0–180)
+  return flux;
+}
 
-  if (tiltIdx === -1) throw new Error('Invalid IES file: missing TILT= line');
-
-  // Parse ALL numbers after TILT line into one flat array
-  const matches = lines.slice(tiltIdx + 1).join(' ').match(/[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?/g);
-  if (!matches) throw new Error('Invalid IES file: photometric data not found');
+// IES LM-63 parser.
+// v2.1: scientific-notation numbers, ".5"-style numbers, nH=1 axial
+// symmetry accepted, truncated-file detection, explicit rejection of
+// external tilt files, nLamps applied to display lumens, ballast
+// factor surfaced (NOT silently applied), Type-C warning.
+function parseIES(text) {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  let luminaireName = '', lumcat = '', tiltIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    let m = ln.match(/^\s*\[LUMINAIRE\]\s*(.*)$/i);
+    if (m && !luminaireName) luminaireName = m[1].trim();
+    m = ln.match(/^\s*\[LUMCAT\]\s*(.*)$/i);
+    if (m && !lumcat) lumcat = m[1].trim();
+    if (/^\s*TILT\s*=/i.test(ln)) { tiltIdx = i; break; }
+  }
+  if (tiltIdx === -1) throw new Error('Missing TILT= line — not a valid LM-63 file');
+  const tiltLine = lines[tiltIdx].toUpperCase().replace(/\s+/g, '');
+  const hasTiltData = tiltLine === 'TILT=INCLUDE';
+  if (!hasTiltData && tiltLine !== 'TILT=NONE') {
+    throw new Error('External tilt files (TILT=<filename>) are not supported');
+  }
+  const matches = lines.slice(tiltIdx + 1).join(' ')
+    .match(/[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?/g);
+  if (!matches || matches.length < 13) throw new Error('Photometric data block not found or incomplete');
   const nums = matches.map(Number);
   let idx = 0;
-
-  // FIX: Skip TILT=INCLUDE data block by index (more robust than line counting)
-  const tiltLine = lines[tiltIdx].trim();
-  if (tiltLine === 'TILT=INCLUDE') {
+  if (hasTiltData) {
     idx++; // lamp-to-luminaire geometry
-    const nTiltAngles = Math.round(nums[idx++]);
-    idx += nTiltAngles * 2; // skip angle values + multiplier values
-  } else if (tiltLine !== 'TILT=NONE') {
-    throw new Error('Unsupported IES tilt reference (external tilt file)');
+    const nTilt = Math.round(nums[idx++]);
+    idx += nTilt * 2; // tilt angles + multiplying factors (read past, not applied)
   }
-
-  const nL = nums[idx++];
-  let lumens = nums[idx++];
-  const candelaMult = nums[idx++]; // FIX: stored for application
+  const nLamps = Math.round(nums[idx++]);
+  const lumensPerLamp = nums[idx++];
+  const candelaMult = nums[idx++];
   const nV = Math.round(nums[idx++]), nH = Math.round(nums[idx++]);
-  if (nV < 2 || nH < 2) throw new Error('Invalid IES photometric web: not enough angles');
-  const photoType = nums[idx++], unitsType = nums[idx++];
-  const width = nums[idx++], length = nums[idx++], height = nums[idx++];
-  const bf = nums[idx++], fut = nums[idx++], watts = nums[idx++];
+  if (nV < 2 || nH < 1) throw new Error('Invalid photometric web: need at least 2 vertical angles');
+  const photoType = Math.round(nums[idx++]); // 1=C, 2=B, 3=A
+  idx++;       // units type
+  idx += 3;    // width, length, height
+  const ballastFactor = nums[idx++];
+  idx++;       // future use
+  const watts = nums[idx++];
+  if (idx + nV + nH + nV * nH > nums.length) throw new Error('Truncated IES file: candela data incomplete');
   const va = nums.slice(idx, idx + nV); idx += nV;
   const ha = nums.slice(idx, idx + nH); idx += nH;
   const cd = [];
   for (let hi = 0; hi < nH; hi++) {
     const p = [];
-    for (let vi = 0; vi < nV; vi++) p.push(nums[idx++] * candelaMult); // FIX: apply multiplier
+    for (let vi = 0; vi < nV; vi++) p.push(nums[idx++] * candelaMult);
     cd.push(p);
   }
+  const isAbsolute = lumensPerLamp <= 0;
+  const lumens = Math.round(isAbsolute
+    ? integrateFlux(va, ha, cd)
+    : Math.max(nLamps, 1) * lumensPerLamp);
 
-  // FIX: Absolute photometry — if lumens <= 0, integrate candela web
-  let isAbsolute = false;
-  if (lumens <= 0) {
-    isAbsolute = true;
-    let totalFlux = 0;
-    for (let hi = 0; hi < nH - 1; hi++) {
-      const h1 = ha[hi] * Math.PI / 180, h2 = ha[hi + 1] * Math.PI / 180;
-      const dH = h2 - h1;
-      for (let vi = 0; vi < nV - 1; vi++) {
-        const v1 = va[vi] * Math.PI / 180, v2 = va[vi + 1] * Math.PI / 180;
-        const avgCd = (cd[hi][vi] + cd[hi][vi + 1] + cd[hi + 1][vi] + cd[hi + 1][vi + 1]) / 4;
-        totalFlux += avgCd * Math.sin((v1 + v2) / 2) * (v2 - v1) * dH;
-      }
-    }
-    const maxHa = ha[ha.length - 1];
-    if (maxHa <= 91) totalFlux *= 4;
-    else if (maxHa <= 181) totalFlux *= 2;
-    lumens = Math.round(totalFlux);
+  const warnings = [];
+  if (photoType !== 1) warnings.push('Photometry is not Type C — results assume Type C roadway convention');
+  if (hasTiltData) warnings.push('TILT=INCLUDE: tilt multipliers are read past but not applied');
+  if (ballastFactor && Math.abs(ballastFactor - 1) > 0.001) {
+    warnings.push('Ballast factor ' + ballastFactor.toFixed(2) + ' not auto-applied — fold into LLF if applicable');
   }
-
   return {
-    name: luminaireName, lumens, watts, vertAngles: va, horizAngles: ha,
-    candela: cd, numVert: nV, numHoriz: nH, isAbsolute, candelaMult
+    name: luminaireName || lumcat || 'Unnamed luminaire',
+    lumens, watts: watts || 0, vertAngles: va, horizAngles: ha,
+    candela: cd, numVert: nV, numHoriz: nH, isAbsolute, candelaMult,
+    nLamps, ballastFactor, photoType, warnings
   };
 }
 
-// FIX: Quadrant symmetry (maxHa ~90) + bilateral (maxHa ~180)
+// Bilinear candela lookup with symmetry folding.
+// v2.1: nH=1 axial symmetry, interpolation fractions clamped to [0,1]
+// (no extrapolation past the web), vertical angle clamped to the
+// file's actual range.
 function getCandela(ies, vd, hd) {
+  const va = ies.vertAngles, ha = ies.horizAngles;
+  vd = Math.min(Math.max(vd, va[0]), va[va.length - 1]);
+  let vi = 0;
+  while (vi < va.length - 2 && va[vi + 1] <= vd) vi++;
+  const vDen = va[vi + 1] - va[vi];
+  const vf = vDen > 0 ? Math.min(Math.max((vd - va[vi]) / vDen, 0), 1) : 0;
+
+  if (ha.length === 1) {
+    return ies.candela[0][vi] + (ies.candela[0][vi + 1] - ies.candela[0][vi]) * vf;
+  }
+  const maxHa = ha[ha.length - 1];
   hd = ((hd % 360) + 360) % 360;
-  const maxHa = ies.horizAngles[ies.horizAngles.length - 1];
-  if (maxHa <= 91) {
+  if (maxHa <= 91) {            // quadrant symmetry
     if (hd > 270) hd = 360 - hd;
     else if (hd > 180) hd = hd - 180;
     else if (hd > 90) hd = 180 - hd;
-  } else if (maxHa <= 181) {
+  } else if (maxHa <= 181) {    // bilateral symmetry
     if (hd > 180) hd = 360 - hd;
   }
-  const va = ies.vertAngles, ha = ies.horizAngles;
-  vd = Math.max(va[0], Math.min(va[va.length - 1], vd));
-  hd = Math.max(ha[0], Math.min(ha[ha.length - 1], hd));
-  let vi = 0;
-  for (let i = 0; i < va.length - 1; i++) { if (va[i + 1] <= vd) vi = i + 1; else break; }
-  vi = Math.min(vi, va.length - 2);
-  const vf = va[vi + 1] !== va[vi] ? (vd - va[vi]) / (va[vi + 1] - va[vi]) : 0;
+  hd = Math.min(Math.max(hd, ha[0]), maxHa);
   let hi = 0;
-  for (let i = 0; i < ha.length - 1; i++) { if (ha[i + 1] <= hd) hi = i + 1; else break; }
-  hi = Math.min(hi, ha.length - 2);
-  const hf = ha[hi + 1] !== ha[hi] ? (hd - ha[hi]) / (ha[hi + 1] - ha[hi]) : 0;
+  while (hi < ha.length - 2 && ha[hi + 1] <= hd) hi++;
+  const hDen = ha[hi + 1] - ha[hi];
+  const hf = hDen > 0 ? Math.min(Math.max((hd - ha[hi]) / hDen, 0), 1) : 0;
   const c00 = ies.candela[hi][vi], c01 = ies.candela[hi][vi + 1];
   const c10 = ies.candela[hi + 1][vi], c11 = ies.candela[hi + 1][vi + 1];
   return (c00 + vf * (c01 - c00)) * (1 - hf) + (c10 + vf * (c11 - c10)) * hf;
 }
 
-// FIX #1: 90° rotation — atan2(dx,dy) so 0° horiz = across road (+Y per IES Type C)
-// FIX #2: rotDeg parameter for staggered far-side poles (180°)
-function calcE(ies, px2, py2, mh, x, y, rotDeg) {
+// Point illuminance from one luminaire. IES Type C: 0° horizontal =
+// across the road (+Y), 90° = along the road (+X) -> atan2(dx, dy).
+// E = I(γ,C) · cosγ / d²  with cosγ = mh/d  (cd, ft -> footcandles).
+function calcE(ies, px, py, mh, x, y, rotDeg) {
   rotDeg = rotDeg || 0;
-  const dx = x - px2, dy = y - py2;
+  const dx = x - px, dy = y - py;
   const d = Math.sqrt(dx * dx + dy * dy + mh * mh);
   if (!d) return 0;
-  const hd = Math.sqrt(dx * dx + dy * dy);
-  const vertAngle = Math.atan2(hd, mh) * 180 / Math.PI;
-  // IES Type C: 0° = across road (+Y direction), 90° = along road (+X)
+  const hDist = Math.sqrt(dx * dx + dy * dy);
+  const vertAngle = Math.atan2(hDist, mh) * 180 / Math.PI;
   let horizAngle = Math.atan2(dx, dy) * 180 / Math.PI;
   horizAngle = ((horizAngle + rotDeg) % 360 + 360) % 360;
   return getCandela(ies, vertAngle, horizAngle) * (mh / d) / (d * d);
 }
 
-// FIX #6: Grid placement at zone centers, not boundaries
+// One pole-to-pole module, 40×11 zone-center grid.
+// v2.1: pole influence window widened from ±1 module each side to an
+// adaptive window (≥3 modules, extending until poles sit ≥12×
+// mounting height beyond the module). The old narrow window
+// underestimated Eavg by up to ~1.8% and Emin by up to ~2.3% at
+// tight spacings.
 function analyzeSpacing(ies, mH, sp, rW, off, llf, arr) {
   const nX = 40, nY = 11, vals = [];
   const stepX = sp / nX, stepY = rW / nY;
+  const nMod = Math.max(3, Math.ceil((12 * mH) / sp)); // modules beyond each end
   for (let xi = 0; xi < nX; xi++) {
-    const x = stepX / 2 + xi * stepX; // zone center
+    const x = stepX / 2 + xi * stepX;
     for (let yi = 0; yi < nY; yi++) {
-      const y = stepY / 2 + yi * stepY; // zone center
+      const y = stepY / 2 + yi * stepY;
       let E = 0;
-      for (let p = -1; p <= 2; p++) E += calcE(ies, p * sp, -off, mH, x, y, 0);
+      for (let p = -nMod; p <= nMod + 1; p++) E += calcE(ies, p * sp, -off, mH, x, y, 0);
       if (arr === 'staggered') {
-        for (let p = -1; p <= 2; p++) E += calcE(ies, p * sp + sp / 2, rW + off, mH, x, y, 180);
+        for (let p = -nMod - 1; p <= nMod; p++) E += calcE(ies, p * sp + sp / 2, rW + off, mH, x, y, 180);
       }
       vals.push(E * llf);
     }
@@ -705,8 +802,50 @@ function analyzeSpacing(ies, mH, sp, rW, off, llf, arr) {
     avg, min: mn, max: mx,
     avgMinRatio: mn > 0 ? avg / mn : Infinity, // IES RP-8 standard: Avg/Min
     maxMin: mn > 0 ? mx / mn : Infinity,
-    grid: vals, numX: nX, numY: nY
+    grid: vals, numX: nX, numY: nY, sp, rW
   };
+}
+
+// Synthetic demo IES: generic LED cobra-head-style distribution.
+// Absolute photometry, quadrant symmetric. NOT manufacturer data —
+// for trying the tool only.
+function buildDemoIES() {
+  const va = []; for (let v = 0; v <= 90; v += 5) va.push(v);
+  const ha = []; for (let h = 0; h <= 90; h += 10) ha.push(h);
+  const D = Math.PI / 180;
+  const raw = ha.map(h => va.map(v => {
+    const lobe = Math.exp(-Math.pow((v - 62) / 16, 2));
+    const along = 0.45 + 0.55 * Math.pow(Math.sin(h * D), 2);
+    const down = 0.32 * Math.pow(Math.cos(v * D), 0.8);
+    return lobe * along + down;
+  }));
+  const rawFlux = integrateFlux(va, ha, raw);
+  const k = 14500 / rawFlux;
+  const cd = raw.map(row => row.map(x => Math.round(x * k)));
+  const wrap = arr => {
+    const out = []; let line = '';
+    for (const n of arr) {
+      const s = String(n);
+      if (line && (line.length + s.length + 1) > 72) { out.push(line); line = s; }
+      else line = line ? line + ' ' + s : s;
+    }
+    if (line) out.push(line);
+    return out.join('\n');
+  };
+  return [
+    'IESNA:LM-63-2002',
+    '[TEST] SYNTHETIC-DEMO-001',
+    '[TESTLAB] None — synthetic data generated in-browser',
+    '[MANUFAC] Demo (synthetic distribution, not manufacturer data)',
+    '[LUMINAIRE] Synthetic Demo 138W LED Cobra Head',
+    '[LUMCAT] DEMO-138-T3',
+    'TILT=NONE',
+    '1 -1 1 ' + va.length + ' ' + ha.length + ' 1 1 1.20 2.50 0.40',
+    '1.0 1.0 138',
+    wrap(va),
+    wrap(ha),
+    ha.map((_, hi) => wrap(cd[hi])).join('\n')
+  ].join('\n') + '\n';
 }
 
 // ============================================================
@@ -714,7 +853,12 @@ function analyzeSpacing(ies, mH, sp, rW, off, llf, arr) {
 // ============================================================
 function setArrangement(a) {
   arrangement = a;
-  document.querySelectorAll('.arr-btn').forEach(b => b.classList.toggle('active', b.dataset.arr === a));
+  document.querySelectorAll('.arr-btn').forEach(b => {
+    const on = b.dataset.arr === a;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+  scheduleRecalc();
 }
 
 function updateRoadClass() {
@@ -733,6 +877,12 @@ function updateRoadClass() {
   } else {
     badge.innerHTML = `RP-8 → Target: ${fc} fc | Max Avg/Min: ${uni.toFixed(1)}:1 | ${speed} mph`;
   }
+  scheduleRecalc();
+}
+
+function setManualMode() {
+  document.getElementById('roadClass').value = 'custom';
+  document.getElementById('autoTargetBadge').innerHTML = 'Manual mode — set your own targets below';
 }
 
 document.getElementById('mountHeight').addEventListener('input', e => {
@@ -740,62 +890,101 @@ document.getElementById('mountHeight').addEventListener('input', e => {
 });
 document.getElementById('targetFc').addEventListener('input', e => {
   document.getElementById('targetFcVal').textContent = parseFloat(e.target.value).toFixed(1) + ' fc';
-  document.getElementById('roadClass').value = 'custom';
-  document.getElementById('autoTargetBadge').innerHTML = 'Manual mode — set your own targets below';
+  setManualMode();
 });
 document.getElementById('targetUni').addEventListener('input', e => {
   document.getElementById('targetUniVal').textContent = parseFloat(e.target.value).toFixed(1) + ':1';
+  setManualMode();
 });
 document.getElementById('llf').addEventListener('input', e => {
   document.getElementById('llfVal').textContent = parseFloat(e.target.value).toFixed(2);
 });
 
+// Live recalculation after the first run (debounced)
+let recalcTimer = null;
+function scheduleRecalc() {
+  if (!hasRunOnce || !iesData) return;
+  clearTimeout(recalcTimer);
+  recalcTimer = setTimeout(() => runCalculation(true), 150);
+}
+['mountHeight', 'targetFc', 'targetUni', 'llf', 'roadWidth', 'poleOffset', 'minSpacing', 'maxSpacing']
+  .forEach(id => document.getElementById(id).addEventListener('input', scheduleRecalc));
+
 // Upload
 const uploadZone = document.getElementById('uploadZone');
 const iesInput = document.getElementById('iesInput');
 uploadZone.addEventListener('click', () => iesInput.click());
-uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.style.borderColor = 'var(--accent)'; });
-uploadZone.addEventListener('dragleave', () => { if (!iesData) uploadZone.style.borderColor = ''; });
-uploadZone.addEventListener('drop', e => { e.preventDefault(); if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+uploadZone.addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); iesInput.click(); }
+});
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
 iesInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+document.getElementById('demoBtn').addEventListener('click', () => {
+  loadIESText(buildDemoIES(), 'synthetic-demo.ies', ['Synthetic demo distribution — not manufacturer data']);
+});
 
 function handleFile(file) {
   const reader = new FileReader();
-  reader.onload = e => {
-    try {
-      iesData = parseIES(e.target.result);
-      uploadZone.classList.add('has-file');
-      document.querySelector('#fileName span').textContent = file.name;
-      const efficacy = iesData.watts > 0 ? (iesData.lumens / iesData.watts).toFixed(0) : '—';
-      document.getElementById('fileStats').innerHTML = `
-        <div class="file-stat">Lumens: <span>${iesData.lumens.toLocaleString()}${iesData.isAbsolute ? ' (abs)' : ''}</span></div>
-        <div class="file-stat">Watts: <span>${iesData.watts.toFixed(1)}W</span></div>
-        <div class="file-stat">Efficacy: <span>${efficacy} lm/W</span></div>
-        <div class="file-stat">Grid: <span>${iesData.numVert}×${iesData.numHoriz}</span></div>`;
-      document.getElementById('calcBtn').disabled = false;
-      document.getElementById('calcBtn').textContent = '⚡ Calculate Spacing';
-    } catch (err) { alert('Error parsing IES: ' + err.message); }
-  };
+  reader.onload = e => loadIESText(e.target.result, file.name, []);
+  reader.onerror = () => alert('Could not read the file. Try again or use a different file.');
   reader.readAsText(file);
+}
+
+function loadIESText(text, displayName, extraWarnings) {
+  try {
+    iesData = parseIES(text);
+  } catch (err) {
+    alert('Error parsing IES: ' + err.message);
+    return;
+  }
+  uploadZone.classList.add('has-file');
+  document.querySelector('#fileName span').textContent = displayName;
+  const efficacy = iesData.watts > 0 ? (iesData.lumens / iesData.watts).toFixed(0) : '—';
+  document.getElementById('fileStats').innerHTML = `
+    <div class="file-stat">Lumens: <span>${iesData.lumens.toLocaleString()}${iesData.isAbsolute ? ' (abs)' : ''}</span></div>
+    <div class="file-stat">Watts: <span>${iesData.watts ? iesData.watts.toFixed(1) + 'W' : '—'}</span></div>
+    <div class="file-stat">Efficacy: <span>${efficacy} lm/W</span></div>
+    <div class="file-stat">Grid: <span>${iesData.numVert}×${iesData.numHoriz}</span></div>`;
+  const warnings = (extraWarnings || []).concat(iesData.warnings || []);
+  document.getElementById('fileWarnings').innerHTML =
+    warnings.map(w => `<div class="file-warning">⚠ ${escapeHTML(w)}</div>`).join('');
+  document.getElementById('calcBtn').disabled = false;
+  document.getElementById('calcBtn').textContent = '⚡ Calculate Spacing';
+  if (hasRunOnce) scheduleRecalc();
 }
 
 // ============================================================
 // CALCULATION + RENDERING
 // ============================================================
-function runCalculation() {
-  if (!iesData) return;
-  const mH = +document.getElementById('mountHeight').value;
-  const tFc = +document.getElementById('targetFc').value;
-  const tUni = +document.getElementById('targetUni').value; // Avg/Min ratio (e.g. 4.0)
-  const rW = +document.getElementById('roadWidth').value;
-  const off = +document.getElementById('poleOffset').value;
-  const llf = +document.getElementById('llf').value;
-  const minS = +document.getElementById('minSpacing').value;
-  const maxS = +document.getElementById('maxSpacing').value;
-  if (!(minS > 0 && maxS >= minS)) {
-    alert('Invalid spacing range. Ensure Max Spacing is greater than or equal to Min Spacing.');
-    return;
+function readNumericInputs(quiet) {
+  const get = id => parseFloat(document.getElementById(id).value);
+  const v = {
+    mH: get('mountHeight'), tFc: get('targetFc'), tUni: get('targetUni'),
+    rW: get('roadWidth'), off: get('poleOffset'), llf: get('llf'),
+    minS: get('minSpacing'), maxS: get('maxSpacing')
+  };
+  const valid = Object.values(v).every(n => isFinite(n)) &&
+    v.mH > 0 && v.rW > 0 && v.off >= 0 && v.llf > 0 && v.llf <= 1 &&
+    v.minS > 0 && v.maxS >= v.minS;
+  if (!valid) {
+    if (!quiet) alert('Check inputs: all values must be valid numbers, with Max Spacing ≥ Min Spacing.');
+    return null;
   }
+  return v;
+}
+
+function runCalculation(quiet) {
+  if (!iesData) return;
+  const v = readNumericInputs(quiet);
+  if (!v) return;
+  const { mH, tFc, tUni, rW, off, llf, minS, maxS } = v;
 
   const spacings = [];
   for (let s = minS; s <= maxS; s += 10) spacings.push(s);
@@ -821,6 +1010,9 @@ function runCalculation() {
     bestSpacing = results[0].spacing;
     bestResult = results[0];
   }
+  lastResults = { results, bestSpacing, params: v, arrangement, name: iesData.name };
+  hasRunOnce = true;
+  document.getElementById('liveNote').classList.add('visible');
 
   document.getElementById('emptyState').style.display = 'none';
   document.getElementById('results').classList.add('visible');
@@ -834,14 +1026,15 @@ function runCalculation() {
 function renderSummary(sp, r, tFc, tUni, mH, hasPassingResult) {
   const sc = r.status === 'pass' ? 'pass' : r.status === 'warn' ? 'warn' : 'fail';
   const uc = r.avgMinRatio <= tUni ? 'pass' : r.avgMinRatio <= tUni * 1.5 ? 'warn' : 'fail';
+  const safeName = escapeHTML(iesData.name);
   document.getElementById('summaryCards').innerHTML = `
     <div class="summary-card ${sc}">
-      <div class="label">${hasPassingResult ? 'Max Recommended Spacing' : 'No Compliant Spacing Found'}</div>
+      <div class="label">${hasPassingResult ? 'Max Recommended Spacing' : 'No Compliant Spacing in Range'}</div>
       <div class="value">${sp} ft</div>
-      <div class="detail">${hasPassingResult ? `${mH} ft mount | ${arrangement} side` : 'Showing worst-case candidate in range'}</div>
+      <div class="detail">${hasPassingResult ? `${mH} ft mount | ${arrangement} side` : 'Tightest spacing analyzed — try taller mounting, staggered layout, or a higher-output fixture'}</div>
     </div>
     <div class="summary-card ${r.avg >= tFc ? 'pass' : 'fail'}">
-      <div class="label">Average Illuminance</div>
+      <div class="label">Avg Maintained Illuminance</div>
       <div class="value">${r.avg.toFixed(2)} fc</div>
       <div class="detail">Target: ≥ ${tFc.toFixed(1)} fc ${r.avg >= tFc ? '✓' : '✗'}</div>
     </div>
@@ -853,7 +1046,7 @@ function renderSummary(sp, r, tFc, tUni, mH, hasPassingResult) {
     <div class="summary-card info">
       <div class="label">Poles per Mile</div>
       <div class="value">${Math.ceil(5280 / sp)}</div>
-      <div class="detail">${iesData.name} @ ${iesData.watts.toFixed(0)}W</div>
+      <div class="detail">${safeName}${iesData.watts ? ' @ ' + iesData.watts.toFixed(0) + 'W' : ''}</div>
     </div>`;
 }
 
@@ -869,6 +1062,34 @@ function renderTable(results, bestSp, hasPassingResult) {
       <td>${r.avgMinRatio.toFixed(1)}:1</td><td>${r.maxMin.toFixed(1)}:1</td>
       <td>${Math.ceil(5280 / r.spacing)}</td><td>${b}</td></tr>`;
   }).join('');
+}
+
+function exportCSV() {
+  if (!lastResults) return;
+  const { results, bestSpacing, params, arrangement: arr, name } = lastResults;
+  const lines = [
+    '# IES Spacing Calculator v2.1 — windcalculations.com / Oasis Engineering LLC',
+    '# Preliminary analysis only — verify with a licensed professional',
+    '# Luminaire: ' + name.replace(/[\r\n,]+/g, ' '),
+    `# MH=${params.mH}ft RoadWidth=${params.rW}ft Offset=${params.off}ft LLF=${params.llf} Arrangement=${arr}`,
+    `# Targets: Eavg>=${params.tFc}fc Avg/Min<=${params.tUni}:1`,
+    'Spacing_ft,Eavg_fc,Emin_fc,Emax_fc,AvgMin_ratio,MaxMin_ratio,Poles_per_mile,Status,Recommended'
+  ];
+  for (const r of results) {
+    lines.push([
+      r.spacing, r.avg.toFixed(3), r.min.toFixed(3), r.max.toFixed(3),
+      isFinite(r.avgMinRatio) ? r.avgMinRatio.toFixed(2) : 'inf',
+      isFinite(r.maxMin) ? r.maxMin.toFixed(2) : 'inf',
+      Math.ceil(5280 / r.spacing), r.status.toUpperCase(),
+      r.spacing === bestSpacing ? 'YES' : ''
+    ].join(','));
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ies-spacing-analysis.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 function renderHeatmap(result) {
@@ -900,6 +1121,11 @@ function renderHeatmap(result) {
       ctx.fillStyle = '#fff'; ctx.fillText(v.toFixed(2), x, y);
     }
   }
+  // Pole markers (near side = bottom edge)
+  ctx.fillStyle = '#fbbf24'; ctx.strokeStyle = '#0a0e1a'; ctx.lineWidth = 2;
+  for (const fx of [0, 1]) {
+    ctx.beginPath(); ctx.arc(fx * w, h - 5, 5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
   const bY = h - 16, bH = 8, bW = 110, bX = w - bW - 8;
   for (let i = 0; i < bW; i++) {
     const n = i / bW; let r2, g2, b2;
@@ -923,20 +1149,24 @@ function renderSideProfile(mH, sp, rW, off, result, targetUni) {
   const p1X = px(0), p2X = px(sp), ptY = py(mH);
   const cR = mH * Math.tan(70 * Math.PI / 180);
   const uniOk = result.avgMinRatio <= targetUni;
+  const safeName = escapeHTML(iesData.name);
 
   wrap.innerHTML = `
-  <svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 ${svgW} ${svgH}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Side profile of two poles at ${sp} feet spacing with light cones">
     <defs>
       <linearGradient id="cg" x1=".5" y1="0" x2=".5" y2="1">
         <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.4"/>
         <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.02"/>
       </linearGradient>
+      <clipPath id="plotClip"><rect x="${pad}" y="0" width="${svgW - pad * 2}" height="${gY}"/></clipPath>
     </defs>
     <rect x="${pad}" y="${gY}" width="${svgW - pad * 2}" height="18" rx="2" fill="#1e293b" stroke="#334155" stroke-width="0.5"/>
     <line x1="${pad}" y1="${gY}" x2="${svgW - pad}" y2="${gY}" stroke="#475569" stroke-width="1" stroke-dasharray="6,4"/>
     <line x1="${pad}" y1="${gY + 9}" x2="${svgW - pad}" y2="${gY + 9}" stroke="#eab308" stroke-width="1" stroke-dasharray="12,8" opacity="0.4"/>
-    <polygon points="${p1X},${ptY} ${px(-cR)},${gY} ${px(cR)},${gY}" fill="url(#cg)"/>
-    <polygon points="${p2X},${ptY} ${px(sp - cR)},${gY} ${px(sp + cR)},${gY}" fill="url(#cg)"/>
+    <g clip-path="url(#plotClip)">
+      <polygon points="${p1X},${ptY} ${px(-cR)},${gY} ${px(cR)},${gY}" fill="url(#cg)"/>
+      <polygon points="${p2X},${ptY} ${px(sp - cR)},${gY} ${px(sp + cR)},${gY}" fill="url(#cg)"/>
+    </g>
     <line x1="${p1X}" y1="${gY}" x2="${p1X}" y2="${ptY}" stroke="#94a3b8" stroke-width="2.5"/>
     <circle cx="${p1X}" cy="${ptY}" r="5" fill="#f59e0b" stroke="#fbbf24" stroke-width="1.5"/>
     <circle cx="${p1X}" cy="${ptY}" r="10" fill="none" stroke="#f59e0b" opacity="0.3" stroke-width="1">
@@ -961,7 +1191,7 @@ function renderSideProfile(mH, sp, rW, off, result, targetUni) {
     <text x="${(p1X + p2X) / 2}" y="${gY - 7}" text-anchor="middle" fill="${result.min >= 0.25 ? '#10b981' : '#ef4444'}" font-family="JetBrains Mono" font-size="9" font-weight="600">${result.min.toFixed(2)} fc min</text>
     <rect x="${svgW - pad - 120}" y="8" width="120" height="26" rx="5" fill="${uniOk ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)'}" stroke="${uniOk ? '#10b981' : '#ef4444'}" stroke-width="1"/>
     <text x="${svgW - pad - 60}" y="26" text-anchor="middle" fill="${uniOk ? '#10b981' : '#ef4444'}" font-family="DM Sans" font-size="10" font-weight="700">${uniOk ? '✓ COMPLIANT' : '⚠ REVIEW'}</text>
-    <text x="${pad + 2}" y="16" fill="#5e6a82" font-family="JetBrains Mono" font-size="9">${iesData.name} — ${iesData.lumens.toLocaleString()} lm</text>
+    <text x="${pad + 2}" y="16" fill="#5e6a82" font-family="JetBrains Mono" font-size="9">${safeName} — ${iesData.lumens.toLocaleString()} lm</text>
   </svg>`;
 }
 
